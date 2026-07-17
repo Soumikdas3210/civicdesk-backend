@@ -10,9 +10,12 @@ import { SlaModule } from './sla/sla.module';
 import { GrievancesModule } from './grievances/grievances.module';
 import { MessagesModule } from './messages/messages.module';
 import { CommonModule } from './common/common.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [AuthModule, UsersModule, DepartmentsModule, WardsModule, CategoriesModule, SlaModule, GrievancesModule, MessagesModule, CommonModule],
+  imports: [AuthModule, UsersModule, DepartmentsModule, WardsModule, CategoriesModule, SlaModule, GrievancesModule, MessagesModule, CommonModule,
+    ConfigModule.forRoot({isGlobal: true}),
+  ],
   controllers: [AppController],
   providers: [AppService],
 })
