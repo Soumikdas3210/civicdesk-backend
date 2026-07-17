@@ -3,4 +3,3 @@
 
 // synchronize: true is DEV ONLY. It auto-drops/recreates columns on entity
 // changes: convenient locally, destructive in production. Gated on NODE_ENV.
-"test" 
