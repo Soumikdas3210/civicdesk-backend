@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -31,7 +35,8 @@ export class UsersService {
       fullName: dto.fullName,
       role: dto.role,
       phone: dto.phone,
-      departmentId: dto.role === Role.OFFICER ? (dto.departmentId ?? null) : null,
+      departmentId:
+        dto.role === Role.OFFICER ? (dto.departmentId ?? null) : null,
       isActive: true,
     });
     return await this.userRepo.save(user);
