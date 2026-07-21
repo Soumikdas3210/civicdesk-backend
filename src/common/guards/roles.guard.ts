@@ -2,6 +2,11 @@ import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { Role } from '../enums';
+import { toUserResponse } from '../utils/to-safe-user.util';
+
+interface AuthenticatedRequest extends Request {
+  user?: ReturnType<typeof toUserResponse>;
+}
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -17,7 +22,9 @@ export class RolesGuard implements CanActivate {
     if (isPublicRoute) return true;
 
     // Requires AuthGuard('jwt') to run first and populate request.user.
-    const { user } = context.switchToHttp().getRequest();
-    return requiredRoles.includes(user?.role);
+    const { user } = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    if (!user) return false;
+
+    return requiredRoles.includes(user.role);
   }
 }
