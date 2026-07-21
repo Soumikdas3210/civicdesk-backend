@@ -14,8 +14,17 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
-  imports: [AuthModule, UsersModule, DepartmentsModule, WardsModule, CategoriesModule, SlaModule, GrievancesModule, MessagesModule, CommonModule,
-    ConfigModule.forRoot({isGlobal: true}),
+  imports: [
+    AuthModule,
+    UsersModule,
+    DepartmentsModule,
+    WardsModule,
+    CategoriesModule,
+    SlaModule,
+    GrievancesModule,
+    MessagesModule,
+    CommonModule,
+    ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => ({
