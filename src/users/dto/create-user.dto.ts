@@ -1,26 +1,32 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength, IsUUID } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+  IsUUID,
+} from 'class-validator';
 import { Role } from 'src/common/enums';
 
 export class CreateUserDto {
-    @IsEmail()
-    email: string;
+  @IsEmail()
+  email: string;
 
-    @IsString()
-    fullName: string;
+  @IsString()
+  fullName: string;
 
-    @IsString()
-    @MinLength(8)
-    password: string;
+  @IsString()
+  @MinLength(8)
+  password: string;
 
-    @IsOptional()
-    @IsString()
-    phone?: string;
+  @IsOptional()
+  @IsString()
+  phone?: string;
 
-    @IsEnum(Role)
-    role: Role;
+  @IsEnum(Role)
+  role: Role;
 
-    @IsOptional()
-    @IsUUID()
-    departmentId?: string | null;
-
+  @IsOptional()
+  @IsUUID()
+  departmentId?: string | null;
 }
