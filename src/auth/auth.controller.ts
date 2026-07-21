@@ -1,7 +1,14 @@
-import { Controller, Post, HttpCode, HttpStatus, Body } from '@nestjs/common';
+import { Controller, Post, HttpCode, HttpStatus, Body, UseGuards, Get, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { ApiBearerAuth } from '@nestjs/swagger';
+import { toUserResponse } from 'src/common/utils/to-safe-user.util';
+
+interface AuthenticatedRequest extends Request {
+  user: ReturnType<typeof toUserResponse>;
+}
 
 @Controller('auth')
 export class AuthController {
@@ -16,5 +23,12 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'))
+  @Get('me')
+  getMe(@Req() req: AuthenticatedRequest) {
+    return req.user;
   }
 }
