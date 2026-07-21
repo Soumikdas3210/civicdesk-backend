@@ -6,6 +6,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcryptjs';
 import { toUserResponse } from 'src/common/utils/to-safe-user.util';
+import { User } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -39,7 +40,7 @@ export class AuthService {
         return this.buildAuthResponse(user);
     }
 
-    private buildAuthResponse(user: any) {
+    private buildAuthResponse(user: User) {
         const payload = {
             sub: user.id,
             email: user.email,
