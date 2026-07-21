@@ -8,11 +8,13 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   app.useGlobalFilters(new HttpExceptionFilter());
 
@@ -20,8 +22,8 @@ async function bootstrap() {
     .setTitle('CivicDesk Api')
     .setVersion('0.1')
     .addBearerAuth()
-    .build()
-  SwaggerModule.setup('api', app, SwaggerModule.createDocument(app, config))
+    .build();
+  SwaggerModule.setup('api', app, SwaggerModule.createDocument(app, config));
 
   const configService = app.get(ConfigService);
   await app.listen(configService.get('PORT') ?? 3000);
