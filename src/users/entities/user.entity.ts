@@ -38,7 +38,7 @@ export class User {
         type: 'uuid',
         nullable: true,
     })
-    departmentId?: string;
+    departmentId?: string | null;
 
     @CreateDateColumn({
         type: 'timestamptz',
