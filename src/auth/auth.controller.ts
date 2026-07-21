@@ -4,6 +4,11 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth } from '@nestjs/swagger';
+import { toUserResponse } from 'src/common/utils/to-safe-user.util';
+
+interface AuthenticatedRequest extends Request {
+  user: ReturnType<typeof toUserResponse>;
+}
 
 @Controller('auth')
 export class AuthController {
@@ -23,7 +28,7 @@ export class AuthController {
   @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Get('me')
-  getMe(@Req() req) {
+  getMe(@Req() req: AuthenticatedRequest) {
     return req.user;
   }
 }
