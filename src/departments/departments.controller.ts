@@ -1,4 +1,13 @@
-import { Controller, Param, Post, UseGuards, Body, Patch, Get, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Param,
+  Post,
+  UseGuards,
+  Body,
+  Patch,
+  Get,
+  Delete,
+} from '@nestjs/common';
 import { DepartmentsService } from './departments.service';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
@@ -44,5 +53,4 @@ export class DepartmentsController {
   remove(@Param('id') id: string) {
     return this.departmentsService.remove(id);
   }
-
 }
