@@ -1,4 +1,11 @@
-import { Controller, UseGuards, Post, Body } from '@nestjs/common';
+import {
+  Controller,
+  UseGuards,
+  Post,
+  Body,
+  Patch,
+  Param,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -7,6 +14,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Role } from 'src/common/enums';
 import { toUserResponse } from 'src/common/utils/to-safe-user.util';
+import { SetDepartmentDto } from './dto/set-department.dto';
 
 @Controller('users')
 export class UsersController {
@@ -26,5 +34,13 @@ export class UsersController {
       departmentId: undefined,
     });
     return toUserResponse(user);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch(':id/department')
+  setDepartment(@Param('id') id: string, @Body() dto: SetDepartmentDto) {
+    return this.usersService.setDepartment(id, dto);
   }
 }
