@@ -8,6 +8,7 @@ import { Ward } from './entities/ward.entity';
 import { Repository } from 'typeorm';
 import { CreateWardDto } from './dto/create-ward.dto';
 import { UpdateWardDto } from './dto/update-ward.dto';
+import { toUserResponse } from 'src/common/utils/to-safe-user.util';
 
 @Injectable()
 export class WardsService {
@@ -52,5 +53,14 @@ export class WardsService {
 
     Object.assign(ward, dto);
     return await this.wardRepo.save(ward);
+  }
+
+  async findOfficers(wardId: string) {
+    const ward = await this.wardRepo.findOne({
+      where: { id: wardId },
+      relations: { officers: true },
+    });
+    if (!ward) throw new NotFoundException('Ward not found');
+    return (ward.officers ?? []).map(toUserResponse);
   }
 }

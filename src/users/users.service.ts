@@ -13,6 +13,9 @@ import * as bcrypt from 'bcryptjs';
 import { Department } from 'src/departments/entities/department.entity';
 import { toUserResponse } from 'src/common/utils/to-safe-user.util';
 import { SetDepartmentDto } from './dto/set-department.dto';
+import { Ward } from 'src/wards/entities/ward.entity';
+import { SetWardsDto } from './dto/set-wards.dto';
+import { In } from 'typeorm';
 
 @Injectable()
 export class UsersService {
@@ -20,6 +23,7 @@ export class UsersService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(Department)
     private readonly deptRepo: Repository<Department>,
+    @InjectRepository(Ward) private readonly wardRepo: Repository<Ward>,
   ) {}
 
   async createUser(dto: CreateUserDto): Promise<User> {
@@ -82,5 +86,54 @@ export class UsersService {
     //            await this.grievanceService.reconcileAssignments(affected, AuditAction.ASSIGNED);
 
     return toUserResponse(user);
+  }
+
+  async setWards(userId: string, dto: SetWardsDto) {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: { wards: true },
+    });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    if (user.role !== Role.OFFICER) {
+      throw new BadRequestException('Only officers can be assigned wards');
+    }
+
+    const foundWards = await this.wardRepo.find({
+      where: { id: In(dto.wardIds) },
+    });
+    if (foundWards.length !== dto.wardIds.length) {
+      const foundIds = new Set(foundWards.map((w) => w.id));
+      const missing = dto.wardIds.filter((id) => !foundIds.has(id));
+      throw new NotFoundException(`Ward(s) not found: ${missing.join(', ')}`);
+    }
+
+    user.wards = foundWards;
+    await this.userRepo.save(user);
+
+    // TODO(4.4): const affected = await this.grievanceService.grievanceIdsAssignedTo(userId);
+    //            await this.grievanceService.reconcileAssignments(affected, AuditAction.ASSIGNED);
+
+    return toUserResponse(user);
+  }
+
+  async findByIdWithWards(userId: string) {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      relations: { wards: true },
+    });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+    return {
+      ...toUserResponse(user),
+      wards: (user.wards ?? []).map((ward) => ({
+        id: ward.id,
+        name: ward.name,
+        code: ward.code,
+      })),
+    };
   }
 }

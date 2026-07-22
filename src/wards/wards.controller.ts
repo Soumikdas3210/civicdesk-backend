@@ -35,7 +35,7 @@ export class WardsController {
   }
 
   @Get(':id')
-  findOne(id: string) {
+  findOne(@Param('id') id: string) {
     return this.wardsService.findOne(id);
   }
 
@@ -44,5 +44,10 @@ export class WardsController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateWardDto) {
     return this.wardsService.update(id, dto);
+  }
+
+  @Get(':id/officers')
+  findOfficers(@Param('id') id: string) {
+    return this.wardsService.findOfficers(id);
   }
 }

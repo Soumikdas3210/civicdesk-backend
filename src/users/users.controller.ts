@@ -5,6 +5,7 @@ import {
   Body,
   Patch,
   Param,
+  Get,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { ApiBearerAuth } from '@nestjs/swagger';
@@ -15,6 +16,7 @@ import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Role } from 'src/common/enums';
 import { toUserResponse } from 'src/common/utils/to-safe-user.util';
 import { SetDepartmentDto } from './dto/set-department.dto';
+import { SetWardsDto } from './dto/set-wards.dto';
 
 @Controller('users')
 export class UsersController {
@@ -42,5 +44,21 @@ export class UsersController {
   @Patch(':id/department')
   setDepartment(@Param('id') id: string, @Body() dto: SetDepartmentDto) {
     return this.usersService.setDepartment(id, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch(':id/wards')
+  setWards(@Param('id') id: string, @Body() dto: SetWardsDto) {
+    return this.usersService.setWards(id, dto);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.usersService.findByIdWithWards(id);
   }
 }
