@@ -4,12 +4,14 @@ import { BadRequestException, ConflictException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { Department } from 'src/departments/entities/department.entity';
+import { Ward } from 'src/wards/entities/ward.entity';
 import { Role } from 'src/common/enums';
 
 describe('UsersService', () => {
   let usersService: UsersService;
   let repo: { findOne: jest.Mock; create: jest.Mock; save: jest.Mock };
   let deptRepo: { findOne: jest.Mock };
+  let wardRepo: { find: jest.Mock };
 
   beforeEach(async () => {
     repo = {
@@ -20,12 +22,14 @@ describe('UsersService', () => {
       ),
     };
     deptRepo = { findOne: jest.fn() };
+    wardRepo = { find: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
         { provide: getRepositoryToken(User), useValue: repo },
         { provide: getRepositoryToken(Department), useValue: deptRepo },
+        { provide: getRepositoryToken(Ward), useValue: wardRepo },
       ],
     }).compile();
 
@@ -75,5 +79,13 @@ describe('UsersService', () => {
       departmentId: 'dept-1',
     });
     expect(result.departmentId).toBe('dept-1');
+  });
+
+  it('rejects assigning wards to a citizen (INV-1)', async () => {
+    repo.findOne.mockResolvedValue({ id: 'user-1', role: Role.CITIZEN });
+
+    await expect(
+      usersService.setWards('user-1', { wardIds: ['ward-1'] }),
+    ).rejects.toThrow(BadRequestException);
   });
 });
