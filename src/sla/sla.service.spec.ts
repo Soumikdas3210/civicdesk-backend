@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
+import { ConflictException } from '@nestjs/common';
 import { SlaService } from './sla.service';
 import { SLAPolicy } from './entities/sla-policy.entity';
 import { Category } from 'src/categories/entities/category.entity';
@@ -88,5 +89,45 @@ describe('SlaService.computeDeadlines', () => {
     expect(result.resolutionDueAt).toEqual(
       new Date('2026-06-15T12:00:00.000Z'),
     );
+  });
+});
+
+describe('SlaService.create', () => {
+  let slaService: SlaService;
+  let policyRepo: { findOne: jest.Mock; create: jest.Mock; save: jest.Mock };
+  let categoryRepo: { findOne: jest.Mock };
+
+  beforeEach(async () => {
+    policyRepo = {
+      findOne: jest.fn(),
+      create: jest.fn((dto: Partial<SLAPolicy>) => dto),
+      save: jest.fn((e) => Promise.resolve({ id: 'new-id', ...e })),
+    };
+    categoryRepo = { findOne: jest.fn() };
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SlaService,
+        { provide: getRepositoryToken(SLAPolicy), useValue: policyRepo },
+        { provide: getRepositoryToken(Category), useValue: categoryRepo },
+        { provide: ConfigService, useValue: { get: jest.fn() } },
+      ],
+    }).compile();
+
+    slaService = module.get(SlaService);
+  });
+
+  it('rejects a duplicate (categoryId, priority) pair (INV-4)', async () => {
+    categoryRepo.findOne.mockResolvedValue({ id: 'cat-1' });
+    policyRepo.findOne.mockResolvedValue({ id: 'existing-policy' });
+
+    await expect(
+      slaService.create({
+        categoryId: 'cat-1',
+        priority: Priority.HIGH,
+        responseDueHours: 4,
+        resolutionDueHours: 24,
+      }),
+    ).rejects.toThrow(ConflictException);
   });
 });

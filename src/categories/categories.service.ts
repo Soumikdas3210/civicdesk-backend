@@ -1,10 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Category } from './entities/category.entity';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { Department } from 'src/departments/entities/department.entity';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { SLAPolicy } from 'src/sla/entities/sla-policy.entity';
 
 @Injectable()
 export class CategoriesService {
@@ -13,6 +18,8 @@ export class CategoriesService {
     private readonly categoryRepo: Repository<Category>,
     @InjectRepository(Department)
     private readonly deptRepo: Repository<Department>,
+    @InjectRepository(SLAPolicy)
+    private readonly slaRepo: Repository<SLAPolicy>,
   ) {}
 
   private async assertDepartmentExists(departmentId: string) {
@@ -65,7 +72,14 @@ export class CategoriesService {
     if (!existing) {
       throw new NotFoundException(`Category with ID ${id} not found`);
     }
+
+    const policyCount = await this.slaRepo.count({ where: { categoryId: id } });
+    if (policyCount > 0) {
+      throw new ConflictException(
+        `Cannot delete a category referenced by an SLA policy. retire it with isActive: false instead`,
+      );
+    }
     await this.categoryRepo.delete(id);
-    return { message: `Category with ID ${id} has been deleted` };
+    return { deleted: true };
   }
 }

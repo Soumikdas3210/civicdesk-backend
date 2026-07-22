@@ -88,4 +88,24 @@ describe('UsersService', () => {
       usersService.setWards('user-1', { wardIds: ['ward-1'] }),
     ).rejects.toThrow(BadRequestException);
   });
+
+  it('resolves wards from the officer side of the M2M (INV-3)', async () => {
+    repo.findOne.mockResolvedValue({
+      id: 'user-1',
+      email: 'karim@city.gov',
+      passwordHash: 'should-not-leak',
+      fullName: 'Karim Hossain',
+      role: Role.OFFICER,
+      isActive: true,
+      departmentId: 'dept-1',
+      createdAt: new Date(),
+      wards: [{ id: 'ward-1', name: 'Ward 12', code: 'W-12' }],
+    });
+
+    const result = await usersService.findByIdWithWards('user-1');
+
+    expect(result.wards).toHaveLength(1);
+    expect(result.wards[0].id).toBe('ward-1');
+    expect(result).not.toHaveProperty('passwordHash');
+  });
 });
