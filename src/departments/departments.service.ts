@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { CreateDepartmentDto } from './dto/create-department.dto';
 import { UpdateDepartmentDto } from './dto/update-department.dto';
+import { Category } from 'src/categories/entities/category.entity';
 
 @Injectable()
 export class DepartmentsService {
@@ -16,6 +17,8 @@ export class DepartmentsService {
     @InjectRepository(Department)
     private readonly deptRepo: Repository<Department>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(Category)
+    private readonly categoryRepo: Repository<Category>,
   ) {}
 
   async create(dto: CreateDepartmentDto) {
@@ -69,6 +72,15 @@ export class DepartmentsService {
     if (officerCount > 0) {
       throw new ConflictException(
         `Cannot delete department with assigned officers`,
+      );
+    }
+
+    const categoryCount = await this.categoryRepo.count({
+      where: { departmentId: id },
+    });
+    if (categoryCount > 0) {
+      throw new ConflictException(
+        'Cannot delete department with assigned categories',
       );
     }
 
