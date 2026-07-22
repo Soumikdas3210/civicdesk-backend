@@ -2,9 +2,15 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  JoinTable,
+  ManyToMany,
+  ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Role } from '../../common/enums';
+import { Department } from 'src/departments/entities/department.entity';
+import { Ward } from 'src/wards/entities/ward.entity';
 
 @Entity('users')
 export class User {
@@ -44,6 +50,20 @@ export class User {
     nullable: true,
   })
   departmentId?: string | null;
+
+  @ManyToOne(() => Department, (department) => department.officers, {
+    nullable: true,
+  })
+  @JoinColumn({ name: 'departmentId' })
+  department?: Department;
+
+  @ManyToMany(() => Ward, (ward) => ward.officers)
+  @JoinTable({
+    name: 'officer_wards',
+    joinColumn: { name: 'officerId' },
+    inverseJoinColumn: { name: 'wardId' },
+  })
+  wards?: Ward[];
 
   @CreateDateColumn({
     type: 'timestamptz',
