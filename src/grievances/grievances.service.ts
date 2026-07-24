@@ -1,4 +1,9 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Grievance } from './entities/grievance.entity';
 import { DataSource, Repository } from 'typeorm';
@@ -8,8 +13,16 @@ import { Ward } from 'src/wards/entities/ward.entity';
 import { AuditService } from './audit.service';
 import { SlaService } from 'src/sla/sla.service';
 import { AI_SERVICE } from 'src/ai/ai.interface';
-import { AuditAction, Priority } from 'src/common/enums';
+import {
+  AuditAction,
+  Priority,
+  Role,
+  ActorKind,
+  GrievanceStatus,
+} from 'src/common/enums';
 import type { AiService } from 'src/ai/ai.interface';
+import { ChangeStatusDto } from './dto/change-status.dto';
+import { resolveTransition } from 'src/common/state-machine/transition-map';
 
 @Injectable()
 export class GrievancesService {
@@ -103,5 +116,103 @@ export class GrievancesService {
         ward: true,
       },
     });
+  }
+
+  async changeStatus(
+    grievanceId: string,
+    dto: ChangeStatusDto,
+    actor: {
+      id: string;
+      role: Role;
+    },
+  ): Promise<Grievance> {
+    const grievance = await this.grievanceRepo.findOne({
+      where: { id: grievanceId },
+    });
+    if (!grievance) {
+      throw new NotFoundException(`Grievance ${grievanceId} not found`);
+    }
+
+    // Actor precondition, BEFORE the map. INV-9 + the assignee rule.
+    if (actor.role === Role.CITIZEN && grievance.citizenId !== actor.id) {
+      throw new ForbiddenException(
+        `Citizen ${actor.id} is not the owner of grievance ${grievanceId}`,
+      );
+    }
+    if (
+      actor.role === Role.OFFICER &&
+      grievance.assignedOfficerId !== actor.id
+    ) {
+      throw new ForbiddenException(
+        `Officer ${actor.id} is not assigned to grievance ${grievanceId}`,
+      );
+    }
+
+    const actorKind = actor.role as unknown as ActorKind; // Role and ActorKind share member names
+    const next = resolveTransition(grievance.status, actorKind, dto.action);
+
+    // INV-4: pause accounting
+    if (next === GrievanceStatus.WAITING_ON_CITIZEN) {
+      grievance.waitingSince = new Date();
+    }
+    if (grievance.waitingSince && next !== GrievanceStatus.WAITING_ON_CITIZEN) {
+      grievance.pausedMs = String(
+        BigInt(grievance.pausedMs) +
+          BigInt(Date.now() - grievance.waitingSince.getTime()),
+      );
+      grievance.waitingSince = null;
+    }
+
+    // INV-5: resolution satisfied
+    if (next === GrievanceStatus.RESOLVED) {
+      grievance.resolvedAt = new Date();
+    }
+
+    // INV-5 + INV-9: a REOPEN starts a NEW resolution cycle
+    if (next === GrievanceStatus.REOPENED) {
+      grievance.resolvedAt = null;
+      grievance.resolutionBreached = false;
+      const d = await this.slaService.computeDeadlines(
+        grievance.categoryId,
+        grievance.priority,
+        new Date(),
+      );
+      grievance.resolutionDueAt = d.resolutionDueAt;
+      // firstRespondedAt, responseDueAt, responseBreached are NOT touched.
+
+      await this.retractRating(grievance, actor.id);
+    }
+
+    const fromStatus = grievance.status;
+    grievance.status = next;
+    await this.grievanceRepo.save(grievance);
+
+    await this.auditService.record({
+      grievanceId: grievance.id,
+      actorId: actor.id,
+      action: AuditAction.STATUS_CHANGED,
+      fromStatus,
+      toStatus: next,
+    });
+
+    return this.grievanceRepo.findOneOrFail({
+      where: { id: grievance.id },
+      relations: {
+        category: {
+          department: true,
+        },
+        ward: true,
+      },
+    });
+  }
+
+  // Ratings don't exist until Phase 2 (P3.3). Stub now, filled in then.
+  private retractRating(
+    _grievance: Grievance,
+    _actorId: string,
+  ): Promise<void> {
+    void _grievance;
+    void _actorId;
+    return Promise.resolve();
   }
 }
