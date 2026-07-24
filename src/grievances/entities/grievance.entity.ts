@@ -65,12 +65,12 @@ export class Grievance {
   @JoinColumn({
     name: 'assignedOfficerId',
   })
-  assignedOfficer?: User;
+  assignedOfficer?: User | null;
   @Column({
     type: 'uuid',
     nullable: true,
   })
-  assignedOfficerId?: string;
+  assignedOfficerId?: string | null;
 
   @ManyToOne(() => Category, {
     nullable: false,

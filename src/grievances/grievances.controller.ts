@@ -17,6 +17,7 @@ import { CreateGrievanceDto } from './dto/create-grievance.dto';
 import { toUserResponse } from 'src/common/utils/to-safe-user.util';
 import { Request } from 'express';
 import { ChangeStatusDto } from './dto/change-status.dto';
+import { AssignGrievanceDto } from './dto/assign-grievance.dto';
 
 interface AuthenticatedRequest extends Request {
   user: ReturnType<typeof toUserResponse>;
@@ -41,6 +42,19 @@ export class GrievancesController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.grievancesService.changeStatus(id, dto, {
+      id: req.user.id,
+      role: req.user.role,
+    });
+  }
+
+  @Roles(Role.OFFICER, Role.ADMIN)
+  @Patch(':id/assign')
+  assign(
+    @Param('id') id: string,
+    @Body() dto: AssignGrievanceDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.grievancesService.assign(id, dto, {
       id: req.user.id,
       role: req.user.role,
     });
