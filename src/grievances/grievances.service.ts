@@ -7,7 +7,14 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Grievance } from './entities/grievance.entity';
-import { DataSource, Repository, In, IsNull, Not } from 'typeorm';
+import {
+  DataSource,
+  Repository,
+  In,
+  IsNull,
+  Not,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { CreateGrievanceDto } from './dto/create-grievance.dto';
 import { Category } from 'src/categories/entities/category.entity';
 import { Ward } from 'src/wards/entities/ward.entity';
@@ -26,6 +33,7 @@ import { ChangeStatusDto } from './dto/change-status.dto';
 import { resolveTransition } from 'src/common/state-machine/transition-map';
 import { User } from 'src/users/entities/user.entity';
 import { AssignGrievanceDto } from './dto/assign-grievance.dto';
+import { QueryGrievancesDto } from './dto/query-grievance.dto';
 
 @Injectable()
 export class GrievancesService {
@@ -35,6 +43,7 @@ export class GrievancesService {
     @InjectRepository(Category)
     private readonly categoryRepo: Repository<Category>,
     @InjectRepository(Ward) private readonly wardRepo: Repository<Ward>,
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly auditService: AuditService,
     private readonly slaService: SlaService,
@@ -334,5 +343,94 @@ export class GrievancesService {
       select: { id: true },
     });
     return rows.map((r) => r.id);
+  }
+
+  async findAll(dto: QueryGrievancesDto, actor: { id: string; role: Role }) {
+    const page = dto.page ?? 1;
+    const limit = dto.limit ?? 20;
+
+    const qb: SelectQueryBuilder<Grievance> = this.grievanceRepo
+      .createQueryBuilder('g')
+      .leftJoinAndSelect('g.category', 'category')
+      .leftJoinAndSelect('category.department', 'department')
+      .leftJoinAndSelect('g.ward', 'ward');
+
+    switch (actor.role) {
+      case Role.CITIZEN:
+        qb.andWhere('g.citizenId = :uid', { uid: actor.id });
+        break;
+
+      case Role.OFFICER: {
+        const officer = await this.userRepo.findOne({
+          where: { id: actor.id },
+          relations: { wards: true },
+        });
+
+        const wardIds = (officer?.wards ?? []).map((w) => w.id);
+        if (wardIds.length === 0) {
+          return { data: [], total: 0, page, limit };
+        }
+        qb.andWhere('category.departmentId = :dept', {
+          dept: officer?.departmentId,
+        }).andWhere('g.wardId IN (:...wardIds)', { wardIds });
+        break;
+      }
+      case Role.ADMIN:
+        break; // everything
+    }
+
+    if (dto.status) qb.andWhere('g.status = :status', { status: dto.status });
+    if (dto.priority)
+      qb.andWhere('g.priority = :priority', { priority: dto.priority });
+    if (dto.categoryId)
+      qb.andWhere('g.categoryId = :categoryId', { categoryId: dto.categoryId });
+    if (dto.departmentId)
+      qb.andWhere('category.departmentId = :departmentId', {
+        departmentId: dto.departmentId,
+      });
+    if (dto.wardId) qb.andWhere('g.wardId = :wardId', { wardId: dto.wardId });
+    if (dto.search) {
+      qb.andWhere('(g.title ILIKE :search OR g.description ILIKE :search)', {
+        search: `%${dto.search}%`,
+      });
+    }
+
+    qb.orderBy('g.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [data, total] = await qb.getManyAndCount();
+    return { data, total, page, limit };
+  }
+
+  async findOneScoped(
+    grievanceId: string,
+    actor: { id: string; role: Role },
+  ): Promise<Grievance> {
+    const g = await this.grievanceRepo.findOne({
+      where: { id: grievanceId },
+      relations: { category: { department: true }, ward: true },
+    });
+    if (!g) throw new NotFoundException('Grievance not found');
+
+    if (actor.role === Role.CITIZEN) {
+      if (g.citizenId !== actor.id) {
+        throw new NotFoundException('Grievance not found'); // INV-9: 404, never 403
+      }
+      return g;
+    }
+    if (actor.role === Role.OFFICER) {
+      const officer = await this.userRepo.findOne({
+        where: { id: actor.id },
+        relations: { wards: true },
+      });
+      if (!officer || !this.isEligible(g, officer)) {
+        throw new ForbiddenException(
+          'Officer is not eligible for this grievance',
+        );
+      }
+      return g;
+    }
+    return g; // admin: everything
   }
 }
