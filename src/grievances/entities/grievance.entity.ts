@@ -111,13 +111,13 @@ export class Grievance {
     type: 'timestamptz',
     nullable: true,
   })
-  firstRespondedAt?: Date;
+  firstRespondedAt?: Date | null;
 
   @Column({
     type: 'timestamptz',
     nullable: true,
   })
-  resolvedAt?: Date;
+  resolvedAt?: Date | null;
 
   // INV-4: pause accounting. Written by the state machine (4.3), read by the
   // Phase 2 scanner. bigint because int overflows at 24.8 days.
@@ -125,7 +125,7 @@ export class Grievance {
     type: 'timestamptz',
     nullable: true,
   })
-  waitingSince?: Date;
+  waitingSince?: Date | null;
 
   @Column({
     type: 'bigint',

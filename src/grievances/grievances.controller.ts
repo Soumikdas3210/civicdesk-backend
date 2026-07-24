@@ -1,4 +1,12 @@
-import { Controller, Post, UseGuards, Req, Body } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  UseGuards,
+  Req,
+  Body,
+  Patch,
+  Param,
+} from '@nestjs/common';
 import { GrievancesService } from './grievances.service';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums';
@@ -8,6 +16,7 @@ import { ApiBearerAuth } from '@nestjs/swagger';
 import { CreateGrievanceDto } from './dto/create-grievance.dto';
 import { toUserResponse } from 'src/common/utils/to-safe-user.util';
 import { Request } from 'express';
+import { ChangeStatusDto } from './dto/change-status.dto';
 
 interface AuthenticatedRequest extends Request {
   user: ReturnType<typeof toUserResponse>;
@@ -23,5 +32,17 @@ export class GrievancesController {
   @Post()
   create(@Body() dto: CreateGrievanceDto, @Req() req: AuthenticatedRequest) {
     return this.grievancesService.create(dto, req.user.id);
+  }
+
+  @Patch(':id/status')
+  changeStatus(
+    @Param('id') id: string,
+    @Body() dto: ChangeStatusDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.grievancesService.changeStatus(id, dto, {
+      id: req.user.id,
+      role: req.user.role,
+    });
   }
 }
