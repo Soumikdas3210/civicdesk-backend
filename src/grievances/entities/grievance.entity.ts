@@ -1,8 +1,9 @@
 import { GrievanceStatus, Priority } from 'src/common/enums';
 import { User } from 'src/users/entities/user.entity';
 import { Category } from 'src/categories/entities/category.entity';
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Ward } from 'src/wards/entities/ward.entity';
+import { AuditLog } from './audit-log.entity';
 
 
 @Entity('grievances')
@@ -161,7 +162,8 @@ export class Grievance {
     updatedAt: Date;
 
     // TODO(4.6): @OneToMany(() => Message, (message) => message.grievance) messages: Message[];
-    // TODO(4.7): @OneToMany(() => AuditLog, (auditLog) => auditLog.grievance) auditLogs: AuditLog[];
+    @OneToMany(() => AuditLog, (auditLog) => auditLog.grievance)
+    auditLogs: AuditLog[];
 
     // Phase 2 relations. Declared now so this file is not reopened.
     // @ManyToMany(() => Tag) @JoinTable({ name: 'grievance_tags', ... }) tags: Tag[];
