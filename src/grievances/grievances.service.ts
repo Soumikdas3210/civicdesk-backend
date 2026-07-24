@@ -3,10 +3,11 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { Grievance } from './entities/grievance.entity';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, In, IsNull, Not } from 'typeorm';
 import { CreateGrievanceDto } from './dto/create-grievance.dto';
 import { Category } from 'src/categories/entities/category.entity';
 import { Ward } from 'src/wards/entities/ward.entity';
@@ -23,6 +24,8 @@ import {
 import type { AiService } from 'src/ai/ai.interface';
 import { ChangeStatusDto } from './dto/change-status.dto';
 import { resolveTransition } from 'src/common/state-machine/transition-map';
+import { User } from 'src/users/entities/user.entity';
+import { AssignGrievanceDto } from './dto/assign-grievance.dto';
 
 @Injectable()
 export class GrievancesService {
@@ -214,5 +217,122 @@ export class GrievancesService {
     void _grievance;
     void _actorId;
     return Promise.resolve();
+  }
+
+  private isEligible(grievance: Grievance, officer: User): boolean {
+    return (
+      officer.role === Role.OFFICER &&
+      officer.isActive &&
+      officer.departmentId === grievance.category.departmentId &&
+      (officer.wards ?? []).some((ward) => ward.id === grievance.wardId)
+    );
+  }
+
+  private assertEligibility(grievance: Grievance, officer: User) {
+    if (!this.isEligible(grievance, officer)) {
+      throw new ForbiddenException(
+        'Officer is not eligible to act on this grievance',
+      );
+    }
+  }
+
+  async assign(
+    grievanceId: string,
+    dto: AssignGrievanceDto,
+    actor: {
+      id: string;
+      role: Role;
+    },
+  ): Promise<Grievance> {
+    const grievance = await this.grievanceRepo.findOne({
+      where: { id: grievanceId },
+      relations: { category: true },
+    });
+    if (!grievance) {
+      throw new NotFoundException(`Grievance ${grievanceId} not found`);
+    }
+
+    const targetOfficerId =
+      actor.role === Role.ADMIN ? dto.officerId : actor.id;
+    if (!targetOfficerId) {
+      throw new BadRequestException(
+        'OfficerId is required when an admin assigns a grievance',
+      );
+    }
+
+    const officer = await this.dataSource.getRepository(User).findOne({
+      where: { id: targetOfficerId },
+      relations: { wards: true },
+    });
+    if (!officer) {
+      throw new NotFoundException(`Officer ${targetOfficerId} not found`);
+    }
+
+    this.assertEligibility(grievance, officer);
+
+    grievance.assignedOfficerId = officer.id;
+    await this.grievanceRepo.save(grievance);
+
+    await this.auditService.record({
+      grievanceId: grievance.id,
+      actorId: actor.id,
+      action: AuditAction.ASSIGNED,
+    });
+
+    return this.grievanceRepo.findOneOrFail({
+      where: { id: grievance.id },
+      relations: {
+        category: {
+          department: true,
+        },
+        ward: true,
+      },
+    });
+  }
+
+  async reconcileAssignments(
+    grievanceId: string[],
+    cause: AuditAction,
+  ): Promise<string[]> {
+    if (grievanceId.length === 0) {
+      return [];
+    }
+
+    const grievances = await this.grievanceRepo.find({
+      where: { id: In(grievanceId), assignedOfficerId: Not(IsNull()) },
+      relations: { category: true, assignedOfficer: { wards: true } },
+    });
+
+    const cleared: string[] = [];
+    for (const grievance of grievances) {
+      if (
+        !grievance.assignedOfficer ||
+        this.isEligible(grievance, grievance.assignedOfficer)
+      ) {
+        continue;
+      }
+
+      const previousOfficerId = grievance.assignedOfficerId;
+      grievance.assignedOfficerId = null;
+      grievance.assignedOfficer = null;
+      await this.grievanceRepo.save(grievance);
+
+      await this.auditService.record({
+        grievanceId: grievance.id,
+        actorId: null,
+        action: AuditAction.UNASSIGNED_INELIGIBLE,
+        metadata: { previousOfficerId, cause },
+      });
+      cleared.push(grievance.id);
+    }
+    return cleared;
+  }
+
+  async grievanceIdsAssignedTo(officerId: string): Promise<string[]> {
+    const rows = await this.grievanceRepo.find({
+      where: { assignedOfficerId: officerId },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
   }
 }
