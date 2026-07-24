@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import { Ward } from 'src/wards/entities/ward.entity';
 import { AuditLog } from './audit-log.entity';
+import { Message } from 'src/messages/entities/message.entity';
 
 @Entity('grievances')
 export class Grievance {
@@ -169,7 +170,9 @@ export class Grievance {
   })
   updatedAt: Date;
 
-  // TODO(4.6): @OneToMany(() => Message, (message) => message.grievance) messages: Message[];
+  @OneToMany(() => Message, (message) => message.grievance)
+  messages: Message[];
+
   @OneToMany(() => AuditLog, (auditLog) => auditLog.grievance)
   auditLogs: AuditLog[];
 
