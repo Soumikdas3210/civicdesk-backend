@@ -34,6 +34,7 @@ import { resolveTransition } from 'src/common/state-machine/transition-map';
 import { User } from 'src/users/entities/user.entity';
 import { AssignGrievanceDto } from './dto/assign-grievance.dto';
 import { QueryGrievancesDto } from './dto/query-grievance.dto';
+import { AuditLog } from './entities/audit-log.entity';
 
 @Injectable()
 export class GrievancesService {
@@ -44,6 +45,8 @@ export class GrievancesService {
     private readonly categoryRepo: Repository<Category>,
     @InjectRepository(Ward) private readonly wardRepo: Repository<Ward>,
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    @InjectRepository(AuditLog)
+    private readonly auditLogRepo: Repository<AuditLog>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly auditService: AuditService,
     private readonly slaService: SlaService,
@@ -461,5 +464,29 @@ export class GrievancesService {
     });
     if (!grievance || !officer) return false;
     return this.isEligible(grievance, officer);
+  }
+
+  async getHistory(grievanceId: string, actor: { id: string; role: Role }) {
+    if (actor.role === Role.CITIZEN) {
+      throw new ForbiddenException('Citizens cannot view grievance history');
+    }
+    const grievance = await this.findRawById(grievanceId);
+    if (!grievance) throw new NotFoundException('Grievance not found');
+    if (actor.role === Role.OFFICER) {
+      const officer = await this.userRepo.findOne({
+        where: { id: actor.id },
+        relations: { wards: true },
+      });
+      if (!officer || !this.isEligible(grievance, officer)) {
+        throw new ForbiddenException(
+          'Officer is not eligible for this grievance',
+        );
+      }
+    }
+
+    return this.auditLogRepo.find({
+      where: { grievanceId },
+      order: { createdAt: 'DESC' },
+    });
   }
 }
