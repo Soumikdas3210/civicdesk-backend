@@ -145,7 +145,6 @@ export class GrievancesService {
       throw new NotFoundException(`Grievance ${grievanceId} not found`);
     }
 
-    // Actor precondition, BEFORE the map. INV-9 + the assignee rule.
     if (actor.role === Role.CITIZEN && grievance.citizenId !== actor.id) {
       throw new ForbiddenException(
         `Citizen ${actor.id} is not the owner of grievance ${grievanceId}`,
@@ -163,49 +162,7 @@ export class GrievancesService {
     const actorKind = actor.role as unknown as ActorKind; // Role and ActorKind share member names
     const next = resolveTransition(grievance.status, actorKind, dto.action);
 
-    // INV-4: pause accounting
-    if (next === GrievanceStatus.WAITING_ON_CITIZEN) {
-      grievance.waitingSince = new Date();
-    }
-    if (grievance.waitingSince && next !== GrievanceStatus.WAITING_ON_CITIZEN) {
-      grievance.pausedMs = String(
-        BigInt(grievance.pausedMs) +
-          BigInt(Date.now() - grievance.waitingSince.getTime()),
-      );
-      grievance.waitingSince = null;
-    }
-
-    // INV-5: resolution satisfied
-    if (next === GrievanceStatus.RESOLVED) {
-      grievance.resolvedAt = new Date();
-    }
-
-    // INV-5 + INV-9: a REOPEN starts a NEW resolution cycle
-    if (next === GrievanceStatus.REOPENED) {
-      grievance.resolvedAt = null;
-      grievance.resolutionBreached = false;
-      const d = await this.slaService.computeDeadlines(
-        grievance.categoryId,
-        grievance.priority,
-        new Date(),
-      );
-      grievance.resolutionDueAt = d.resolutionDueAt;
-      // firstRespondedAt, responseDueAt, responseBreached are NOT touched.
-
-      await this.retractRating(grievance, actor.id);
-    }
-
-    const fromStatus = grievance.status;
-    grievance.status = next;
-    await this.grievanceRepo.save(grievance);
-
-    await this.auditService.record({
-      grievanceId: grievance.id,
-      actorId: actor.id,
-      action: AuditAction.STATUS_CHANGED,
-      fromStatus,
-      toStatus: next,
-    });
+    await this.applyTransition(grievance, next, actor.id);
 
     return this.grievanceRepo.findOneOrFail({
       where: { id: grievance.id },
@@ -228,7 +185,7 @@ export class GrievancesService {
     return Promise.resolve();
   }
 
-  private isEligible(grievance: Grievance, officer: User): boolean {
+  isEligible(grievance: Grievance, officer: User): boolean {
     return (
       officer.role === Role.OFFICER &&
       officer.isActive &&
@@ -432,5 +389,77 @@ export class GrievancesService {
       return g;
     }
     return g; // admin: everything
+  }
+
+  async applyTransition(
+    grievance: Grievance,
+    next: GrievanceStatus,
+    actorId: string,
+  ): Promise<void> {
+    // INV-4: pause accounting
+    if (next === GrievanceStatus.WAITING_ON_CITIZEN) {
+      grievance.waitingSince = new Date();
+    }
+    if (grievance.waitingSince && next !== GrievanceStatus.WAITING_ON_CITIZEN) {
+      grievance.pausedMs = String(
+        BigInt(grievance.pausedMs) +
+          BigInt(Date.now() - grievance.waitingSince.getTime()),
+      );
+      grievance.waitingSince = null;
+    }
+
+    // INV-5: resolution satisfied
+    if (next === GrievanceStatus.RESOLVED) {
+      grievance.resolvedAt = new Date();
+    }
+
+    // INV-5 + INV-9: a REOPEN starts a NEW resolution cycle
+    if (next === GrievanceStatus.REOPENED) {
+      grievance.resolvedAt = null;
+      grievance.resolutionBreached = false;
+      const d = await this.slaService.computeDeadlines(
+        grievance.categoryId,
+        grievance.priority,
+        new Date(),
+      );
+      grievance.resolutionDueAt = d.resolutionDueAt;
+      await this.retractRating(grievance, actorId);
+    }
+
+    const fromStatus = grievance.status;
+    grievance.status = next;
+    await this.grievanceRepo.save(grievance);
+
+    await this.auditService.record({
+      grievanceId: grievance.id,
+      actorId,
+      action: AuditAction.STATUS_CHANGED,
+      fromStatus,
+      toStatus: next,
+    });
+  }
+
+  async findRawById(id: string): Promise<Grievance | null> {
+    return this.grievanceRepo.findOne({
+      where: { id },
+      relations: { category: true },
+    });
+  }
+
+  async saveRaw(grievance: Grievance): Promise<Grievance> {
+    return this.grievanceRepo.save(grievance);
+  }
+
+  async isEligibleById(
+    grievanceId: string,
+    officerId: string,
+  ): Promise<boolean> {
+    const grievance = await this.findRawById(grievanceId);
+    const officer = await this.userRepo.findOne({
+      where: { id: officerId },
+      relations: { wards: true },
+    });
+    if (!grievance || !officer) return false;
+    return this.isEligible(grievance, officer);
   }
 }
