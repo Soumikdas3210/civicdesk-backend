@@ -6,4 +6,6 @@ export interface CreateNotificationInput {
   title: string;
   body: string;
   grievanceId?: string;
+  toEmail?: string; 
+  trackingCode?: string;
 }
