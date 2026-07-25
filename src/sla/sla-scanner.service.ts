@@ -48,7 +48,7 @@ export class SlaScannerService {
     private readonly configService: ConfigService,
   ) {}
 
-  @Cron(CronExpression.EVERY_MINUTE) // switch to EVERY_5_MINUTES in P2.5
+  @Cron(CronExpression.EVERY_5_MINUTES) 
   async scan() {
     await this.breachPass();
     await this.escalationPass();
@@ -153,11 +153,11 @@ export class SlaScannerService {
         return !g.resolvedAt && g.resolutionDueAt < effectiveNow;
 
       case EscalationTrigger.UNASSIGNED_FOR_HOURS: {
-        if (g.assignedOfficerId) return false;
-        if (!rule.thresholdHours) return false;
-        const ageHours = (Date.now() - g.createdAt.getTime()) / (1000 * 60 * 60);
-        return ageHours >= rule.thresholdHours;
-      }
+  if (g.assignedOfficerId) return false;
+  if (rule.thresholdHours === undefined || rule.thresholdHours === null) return false;
+  const ageHours = (Date.now() - g.createdAt.getTime()) / (1000 * 60 * 60);
+  return ageHours >= rule.thresholdHours;
+}
 
       default:
         return false;
