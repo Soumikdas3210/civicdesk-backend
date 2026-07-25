@@ -8,8 +8,10 @@ import { Repository } from 'typeorm';
 import { Message } from './entities/message.entity';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { GrievancesService } from 'src/grievances/grievances.service';
-import { Role, ActorKind, GrievanceAction } from 'src/common/enums';
+import { Role, ActorKind, GrievanceAction, NotificationType } from 'src/common/enums';
 import { tryTransition } from 'src/common/state-machine/transition-map';
+import { NotificationsService } from 'src/notifications/notifications.service';
+//import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class MessagesService {
@@ -17,6 +19,8 @@ export class MessagesService {
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
     private readonly grievancesService: GrievancesService,
+    private readonly notificationService: NotificationsService,
+    //private readonly usersService: UsersService,
   ) {}
 
   async postMessage(
@@ -48,6 +52,31 @@ export class MessagesService {
       isInternal,
     });
     await this.messageRepo.save(message);
+
+    if (!isInternal) {
+      if (actor.role === Role.CITIZEN) {
+        if (grievance.assignedOfficerId) {
+          await this.notificationService.notify({
+            userId: grievance.assignedOfficerId,
+            type: NotificationType.NEW_REPLY,
+            title: 'New reply',
+            body: `New reply on ${grievance.trackingCode}.`,
+            grievanceId: grievance.id,
+          });
+        }
+        // TODO:
+        // When UsersService.getAdminIds() is available,
+        // notify admins if the grievance is unassigned.
+      } else {
+        await this.notificationService.notify({
+          userId: grievance.citizenId,
+          type: NotificationType.NEW_REPLY,
+          title: 'New reply',
+          body: `New reply on ${grievance.trackingCode}.`,
+          grievanceId: grievance.id,
+        });
+      }
+    }
 
     // INV-5: only the FIRST public message from the assignee or an admin
     if (
