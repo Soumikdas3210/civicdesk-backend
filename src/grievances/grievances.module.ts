@@ -10,12 +10,14 @@ import { Ward } from 'src/wards/entities/ward.entity';
 import { SlaModule } from 'src/sla/sla.module';
 import { AiModule } from 'src/ai/ai.module';
 import { User } from 'src/users/entities/user.entity';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Grievance, AuditLog, Category, Ward, User]),
     SlaModule,
     AiModule,
+    NotificationsModule,
   ],
   controllers: [GrievancesController],
   providers: [GrievancesService, AuditService],

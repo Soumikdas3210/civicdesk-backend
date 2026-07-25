@@ -34,6 +34,8 @@ import { resolveTransition } from 'src/common/state-machine/transition-map';
 import { User } from 'src/users/entities/user.entity';
 import { AssignGrievanceDto } from './dto/assign-grievance.dto';
 import { QueryGrievancesDto } from './dto/query-grievance.dto';
+import { NotificationType } from 'src/common/enums';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class GrievancesService {
@@ -48,6 +50,7 @@ export class GrievancesService {
     private readonly auditService: AuditService,
     private readonly slaService: SlaService,
     @Inject(AI_SERVICE) private readonly aiService: AiService,
+    private readonly notificationService: NotificationsService,
   ) {}
 
   async onModuleInit() {
@@ -112,6 +115,14 @@ export class GrievancesService {
     grievance.suggestedPriority = suggestion?.priority ?? undefined;
 
     const saved = await this.grievanceRepo.save(grievance);
+
+    this.notificationService.notify({
+      userId: grievance.citizenId,
+      type: NotificationType.GRIEVANCE_SUBMITTED,
+      title: 'Grievance received',
+      body: `Your grievance ${grievance.trackingCode} has been received.`,
+      grievanceId: grievance.id,
+    });
 
     await this.auditService.record({
       grievanceId: saved.id,
@@ -239,6 +250,14 @@ export class GrievancesService {
     grievance.assignedOfficerId = officer.id;
     await this.grievanceRepo.save(grievance);
 
+    this.notificationService.notify({
+      userId: grievance.assignedOfficerId,
+      type: NotificationType.GRIEVANCE_ASSIGNED,
+      title: 'New grievance assigned',
+      body: `Grievance ${grievance.trackingCode} has been assigned to you.`,
+      grievanceId: grievance.id,
+    });
+
     await this.auditService.record({
       grievanceId: grievance.id,
       actorId: actor.id,
@@ -282,6 +301,16 @@ export class GrievancesService {
       grievance.assignedOfficerId = null;
       grievance.assignedOfficer = null;
       await this.grievanceRepo.save(grievance);
+
+      if (previousOfficerId) {
+      await this.notificationService.notify({
+        userId: previousOfficerId,
+        type: NotificationType.UNASSIGNED,
+        title: 'Grievance unassigned',
+        body: `Grievance ${grievance.trackingCode} was unassigned because you no longer meet eligibility.`,
+        grievanceId: grievance.id,
+      });
+    }
 
       await this.auditService.record({
         grievanceId: grievance.id,
@@ -429,6 +458,14 @@ export class GrievancesService {
     const fromStatus = grievance.status;
     grievance.status = next;
     await this.grievanceRepo.save(grievance);
+
+    this.notificationService.notify({
+      userId: grievance.citizenId,
+      type: NotificationType.GRIEVANCE_RESOLVED,
+      title: 'Grievance resolved',
+      body: `Grievance ${grievance.trackingCode} has been resolved. Please rate your experience.`,
+      grievanceId: grievance.id,
+    });
 
     await this.auditService.record({
       grievanceId: grievance.id,
