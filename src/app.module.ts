@@ -12,6 +12,7 @@ import { MessagesModule } from './messages/messages.module';
 import { CommonModule } from './common/common.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         synchronize: cfg.get('NODE_ENV') === 'development',
       }),
     }),
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

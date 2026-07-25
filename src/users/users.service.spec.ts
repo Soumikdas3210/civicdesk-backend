@@ -5,6 +5,7 @@ import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { Department } from 'src/departments/entities/department.entity';
 import { Ward } from 'src/wards/entities/ward.entity';
+import { GrievancesService } from 'src/grievances/grievances.service';
 import { Role } from 'src/common/enums';
 
 describe('UsersService', () => {
@@ -12,6 +13,10 @@ describe('UsersService', () => {
   let repo: { findOne: jest.Mock; create: jest.Mock; save: jest.Mock };
   let deptRepo: { findOne: jest.Mock };
   let wardRepo: { find: jest.Mock };
+  let grievancesService: {
+    grievanceIdsAssignedTo: jest.Mock;
+    reconcileAssignments: jest.Mock;
+  };
 
   beforeEach(async () => {
     repo = {
@@ -23,6 +28,10 @@ describe('UsersService', () => {
     };
     deptRepo = { findOne: jest.fn() };
     wardRepo = { find: jest.fn() };
+    grievancesService = {
+      grievanceIdsAssignedTo: jest.fn().mockResolvedValue([]),
+      reconcileAssignments: jest.fn().mockResolvedValue([]),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -30,6 +39,7 @@ describe('UsersService', () => {
         { provide: getRepositoryToken(User), useValue: repo },
         { provide: getRepositoryToken(Department), useValue: deptRepo },
         { provide: getRepositoryToken(Ward), useValue: wardRepo },
+        { provide: GrievancesService, useValue: grievancesService },
       ],
     }).compile();
 
