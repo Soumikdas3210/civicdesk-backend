@@ -81,4 +81,5 @@ export class AuditLog {
     type: 'timestamptz',
   })
   createdAt: Date;
+
 }

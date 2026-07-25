@@ -149,4 +149,8 @@ export class UsersService {
       })),
     };
   }
+  async getAdminIds(): Promise<string[]> {
+  const admins = await this.userRepo.find({ where: { role: Role.ADMIN } });
+  return admins.map((a) => a.id);
+}
 }

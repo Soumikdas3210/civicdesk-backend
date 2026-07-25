@@ -11,11 +11,12 @@ import { SlaModule } from 'src/sla/sla.module';
 import { AiModule } from 'src/ai/ai.module';
 import { User } from 'src/users/entities/user.entity';
 import { NotificationsModule } from 'src/notifications/notifications.module';
+import { forwardRef } from '@nestjs/common';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Grievance, AuditLog, Category, Ward, User]),
-    SlaModule,
+    forwardRef(() => SlaModule),
     AiModule,
     NotificationsModule,
   ],
