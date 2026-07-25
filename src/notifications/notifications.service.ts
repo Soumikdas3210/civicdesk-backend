@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 
 import { Notification } from './entities/notification.entity';
 import { CreateNotificationInput } from './interfaces/create-notification-input.interface';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class NotificationsService {
@@ -12,6 +13,7 @@ export class NotificationsService {
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
+    private readonly mailService: MailService,
   ) {}
 
   async notify(input: CreateNotificationInput): Promise<void> {
@@ -25,6 +27,16 @@ export class NotificationsService {
       });
 
       await this.notificationRepository.save(notification);
+      await this.mailService.send(input);
+
+      await this.mailService.send({
+      userId: input.userId,
+      type: input.type,
+      body: input.body,
+      grievanceId: input.grievanceId,
+      toEmail: input.toEmail,
+      trackingCode: input.trackingCode,
+    });
     } catch (err) {
       this.logger.error(
         `Notification failed for user ${input.userId}`,
