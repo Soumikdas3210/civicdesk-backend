@@ -26,7 +26,6 @@ export class MailService {
       });
     } catch (err) {
       this.logger.error('Mail send failed', err.stack);
-      // swallowed on purpose, same rule as notify()
     }
   }
 }
