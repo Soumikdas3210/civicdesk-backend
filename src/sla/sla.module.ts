@@ -11,10 +11,11 @@ import { UsersModule } from '../users/users.module';
 import { AuditService } from '../grievances/audit.service';
 import { Category } from 'src/categories/entities/category.entity';
 import { forwardRef } from '@nestjs/common';
+import { EscalationRule } from 'src/escalation-rules/entities/escalation-rule.entity';
 
 @Module({
   imports: [
-  TypeOrmModule.forFeature([SLAPolicy, Grievance, AuditLog, Category]),
+  TypeOrmModule.forFeature([SLAPolicy, Grievance, AuditLog, Category, EscalationRule]),
   NotificationsModule,
   forwardRef(() => UsersModule),
 ],

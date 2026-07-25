@@ -3,10 +3,27 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, In } from 'typeorm';
 import { Grievance } from '../grievances/entities/grievance.entity';
-import { GrievanceStatus, AuditAction, NotificationType } from '../common/enums';
+import { AuditLog } from '../grievances/entities/audit-log.entity';
+import { EscalationRule } from '../escalation-rules/entities/escalation-rule.entity';
+import {
+  GrievanceStatus,
+  AuditAction,
+  NotificationType,
+  EscalationTrigger,
+  EscalationAction,
+  Priority,
+} from '../common/enums';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditService } from '../grievances/audit.service';
 import { UsersService } from '../users/users.service';
+import { SlaService } from './sla.service';
+
+const PRIORITY_RANK: Record<Priority, number> = {
+  [Priority.LOW]: 0,
+  [Priority.MEDIUM]: 1,
+  [Priority.HIGH]: 2,
+  [Priority.URGENT]: 3,
+};
 
 @Injectable()
 export class SlaScannerService {
@@ -15,15 +32,23 @@ export class SlaScannerService {
   constructor(
     @InjectRepository(Grievance)
     private readonly grievanceRepo: Repository<Grievance>,
+    @InjectRepository(AuditLog)
+    private readonly auditRepo: Repository<AuditLog>,
+    @InjectRepository(EscalationRule)
+    private readonly ruleRepo: Repository<EscalationRule>,
     private readonly notificationService: NotificationsService,
     private readonly auditService: AuditService,
     private readonly usersService: UsersService,
+    private readonly slaService: SlaService,
   ) {}
 
-  @Cron(CronExpression.EVERY_MINUTE) // switch to EVERY_5_MINUTES before you tag v0.6
+  @Cron(CronExpression.EVERY_MINUTE) // switch to EVERY_5_MINUTES in P2.5
   async scan() {
     await this.breachPass();
+    await this.escalationPass();
   }
+
+  // ---------- P2.1: breach pass (unchanged from before) ----------
 
   private async breachPass() {
     const open = await this.grievanceRepo.find({
@@ -43,17 +68,17 @@ export class SlaScannerService {
 
       if (!g.responseBreached && !g.firstRespondedAt && g.responseDueAt < effectiveNow) {
         g.responseBreached = true;
-        await this.flag(g, 'response');
+        await this.flagBreach(g, 'response');
       }
       if (!g.resolutionBreached && !g.resolvedAt && g.resolutionDueAt < effectiveNow) {
         g.resolutionBreached = true;
-        await this.flag(g, 'resolution');
+        await this.flagBreach(g, 'resolution');
       }
       await this.grievanceRepo.save(g);
     }
   }
 
-  private async flag(g: Grievance, kind: 'response' | 'resolution') {
+  private async flagBreach(g: Grievance, kind: 'response' | 'resolution') {
     await this.auditService.record({
       grievanceId: g.id,
       actorId: null,
@@ -76,5 +101,115 @@ export class SlaScannerService {
         trackingCode: g.trackingCode,
       });
     }
+  }
+
+  // ---------- P2.3: escalation pass (new) ----------
+
+  private async escalationPass() {
+    const rules = await this.ruleRepo.find({ where: { isActive: true } });
+    if (rules.length === 0) return;
+
+    const open = await this.grievanceRepo.find({
+      where: {
+        status: Not(In([GrievanceStatus.RESOLVED, GrievanceStatus.CLOSED])),
+      },
+      relations: { category: true },
+    });
+
+    for (const rule of rules) {
+      for (const g of open) {
+        if (!this.matches(rule, g)) continue;
+        if (await this.alreadyApplied(rule, g)) continue;
+        await this.applyRule(rule, g);
+      }
+    }
+  }
+
+  private matches(rule: EscalationRule, g: Grievance): boolean {
+    const triggerOk = this.checkTrigger(rule, g);
+    const priorityOk = !rule.priorityFilter || rule.priorityFilter === g.priority;
+    const deptOk = !rule.departmentId || rule.departmentId === g.category.departmentId;
+    return triggerOk && priorityOk && deptOk;
+  }
+
+  private checkTrigger(rule: EscalationRule, g: Grievance): boolean {
+    const pausedNow = g.waitingSince
+      ? Date.now() - g.waitingSince.getTime()
+      : 0;
+    const effectiveNow = new Date(Date.now() - Number(g.pausedMs) - pausedNow);
+
+    switch (rule.trigger) {
+      case EscalationTrigger.RESPONSE_OVERDUE:
+        return !g.firstRespondedAt && g.responseDueAt < effectiveNow;
+
+      case EscalationTrigger.RESOLUTION_OVERDUE:
+        return !g.resolvedAt && g.resolutionDueAt < effectiveNow;
+
+      case EscalationTrigger.UNASSIGNED_FOR_HOURS: {
+        if (g.assignedOfficerId) return false;
+        if (!rule.thresholdHours) return false;
+        const ageHours = (Date.now() - g.createdAt.getTime()) / (1000 * 60 * 60);
+        return ageHours >= rule.thresholdHours;
+      }
+
+      default:
+        return false;
+    }
+  }
+
+  private async alreadyApplied(rule: EscalationRule, g: Grievance): Promise<boolean> {
+    const prior = await this.auditRepo.findOne({
+      where: {
+        grievanceId: g.id,
+        escalationRuleId: rule.id,
+        action: AuditAction.RULE_APPLIED,
+      },
+    });
+    return !!prior;
+  }
+
+  private async applyRule(rule: EscalationRule, g: Grievance) {
+    const previousPriority = g.priority;
+
+    if (rule.action === EscalationAction.RAISE_PRIORITY && rule.targetPriority) {
+      if (PRIORITY_RANK[rule.targetPriority] <= PRIORITY_RANK[g.priority]) {
+        // target isn't actually higher than current — record nothing, don't loop forever
+        return;
+      }
+      g.priority = rule.targetPriority;
+      const deadlines = await this.slaService.computeDeadlines(
+        g.categoryId,
+        g.priority,
+        g.createdAt,
+      );
+      g.responseDueAt = deadlines.responseDueAt;
+      g.resolutionDueAt = deadlines.resolutionDueAt;
+      await this.grievanceRepo.save(g);
+    } else if (rule.action === EscalationAction.NOTIFY_ADMIN) {
+      const adminIds = await this.usersService.getAdminIds();
+      for (const userId of adminIds) {
+        this.notificationService.notify({
+          userId,
+          type: NotificationType.ESCALATED,
+          title: 'Escalation triggered',
+          body: `Rule "${rule.name}" fired on ${g.trackingCode}.`,
+          grievanceId: g.id,
+          trackingCode: g.trackingCode,
+        });
+      }
+    }
+
+    await this.auditService.record({
+      grievanceId: g.id,
+      actorId: null,
+      action: AuditAction.RULE_APPLIED,
+      escalationRuleId: rule.id,
+      metadata: {
+        rule: rule.name,
+        action: rule.action,
+        fromPriority: previousPriority,
+        toPriority: g.priority,
+      },
+    });
   }
 }

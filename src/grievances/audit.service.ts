@@ -25,4 +25,6 @@ export class AuditService {
     const log = this.auditRepo.create(entry);
     return await this.auditRepo.save(log);
   }
+
+  
 }
