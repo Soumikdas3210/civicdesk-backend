@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, In } from 'typeorm';
+import { Repository, Not, In, LessThan } from 'typeorm';
 import { Grievance } from '../grievances/entities/grievance.entity';
 import { AuditLog } from '../grievances/entities/audit-log.entity';
 import { EscalationRule } from '../escalation-rules/entities/escalation-rule.entity';
@@ -12,7 +12,12 @@ import {
   EscalationTrigger,
   EscalationAction,
   Priority,
+  ActorKind,
+  GrievanceAction,
 } from '../common/enums';
+import { subDays } from 'date-fns';
+import { ConfigService } from '@nestjs/config';
+import { resolveTransition } from '../common/state-machine/transition-map';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditService } from '../grievances/audit.service';
 import { UsersService } from '../users/users.service';
@@ -40,12 +45,14 @@ export class SlaScannerService {
     private readonly auditService: AuditService,
     private readonly usersService: UsersService,
     private readonly slaService: SlaService,
+    private readonly configService: ConfigService,
   ) {}
 
   @Cron(CronExpression.EVERY_MINUTE) // switch to EVERY_5_MINUTES in P2.5
   async scan() {
     await this.breachPass();
     await this.escalationPass();
+    await this.autoClosePass();
   }
 
   // ---------- P2.1: breach pass (unchanged from before) ----------
@@ -211,5 +218,38 @@ export class SlaScannerService {
         toPriority: g.priority,
       },
     });
+  }
+  // ---------- P2.4: auto-close pass (new) ----------
+
+  private async autoClosePass() {
+    const days = Number(this.configService.get('AUTO_CLOSE_AFTER_DAYS'));
+    const cutoff = subDays(new Date(), days);
+
+    const stale = await this.grievanceRepo.find({
+      where: {
+        status: GrievanceStatus.RESOLVED,
+        resolvedAt: LessThan(cutoff),
+      },
+    });
+
+    for (const g of stale) {
+      const fromStatus = g.status;
+      const next = resolveTransition(
+        fromStatus,
+        ActorKind.SYSTEM,
+        GrievanceAction.CLOSE,
+      );
+      g.status = next;
+      await this.grievanceRepo.save(g);
+
+      await this.auditService.record({
+        grievanceId: g.id,
+        actorId: null,
+        action: AuditAction.STATUS_CHANGED,
+        fromStatus,
+        toStatus: next,
+        metadata: { cause: 'AUTO_CLOSE' },
+      });
+    }
   }
 }
