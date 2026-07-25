@@ -36,7 +36,6 @@ import { AssignGrievanceDto } from './dto/assign-grievance.dto';
 import { QueryGrievancesDto } from './dto/query-grievance.dto';
 import { NotificationType } from 'src/common/enums';
 import { NotificationsService } from 'src/notifications/notifications.service';
-=======
 import { AuditLog } from './entities/audit-log.entity';
 @Injectable()
 export class GrievancesService {
