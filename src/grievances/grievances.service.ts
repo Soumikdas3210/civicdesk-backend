@@ -474,18 +474,20 @@ export class GrievancesService {
     grievance.status = next;
     await this.grievanceRepo.save(grievance);
 
-    const citizen = await this.userRepo.findOne({
-      where: { id: grievance.citizenId },
-    });
-    this.notificationService.notify({
-      userId: grievance.citizenId,
-      type: NotificationType.GRIEVANCE_RESOLVED,
-      title: 'Grievance resolved',
-      body: `Grievance ${grievance.trackingCode} has been resolved. Please rate your experience.`,
-      grievanceId: grievance.id,
-      toEmail: citizen?.email,
-      trackingCode: grievance.trackingCode,
-    });
+    if (next === GrievanceStatus.RESOLVED) {
+      const citizen = await this.userRepo.findOne({
+        where: { id: grievance.citizenId },
+      });
+      this.notificationService.notify({
+        userId: grievance.citizenId,
+        type: NotificationType.GRIEVANCE_RESOLVED,
+        title: 'Grievance resolved',
+        body: `Grievance ${grievance.trackingCode} has been resolved. Please rate your experience.`,
+        grievanceId: grievance.id,
+        toEmail: citizen?.email,
+        trackingCode: grievance.trackingCode,
+      });
+    }
 
     await this.auditService.record({
       grievanceId: grievance.id,

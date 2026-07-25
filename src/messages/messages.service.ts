@@ -11,7 +11,7 @@ import { GrievancesService } from 'src/grievances/grievances.service';
 import { Role, ActorKind, GrievanceAction, NotificationType } from 'src/common/enums';
 import { tryTransition } from 'src/common/state-machine/transition-map';
 import { NotificationsService } from 'src/notifications/notifications.service';
-//import { UsersService } from 'src/users/users.service';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class MessagesService {
@@ -20,7 +20,7 @@ export class MessagesService {
     private readonly messageRepo: Repository<Message>,
     private readonly grievancesService: GrievancesService,
     private readonly notificationService: NotificationsService,
-    //private readonly usersService: UsersService,
+    private readonly usersService: UsersService,
   ) {}
 
   async postMessage(
@@ -55,19 +55,28 @@ export class MessagesService {
 
     if (!isInternal) {
       if (actor.role === Role.CITIZEN) {
-        if (grievance.assignedOfficerId) {
-          await this.notificationService.notify({
-            userId: grievance.assignedOfficerId,
-            type: NotificationType.NEW_REPLY,
-            title: 'New reply',
-            body: `New reply on ${grievance.trackingCode}.`,
-            grievanceId: grievance.id,
-          });
-        }
-        // TODO:
-        // When UsersService.getAdminIds() is available,
-        // notify admins if the grievance is unassigned.
-      } else {
+  if (grievance.assignedOfficerId) {
+    await this.notificationService.notify({
+      userId: grievance.assignedOfficerId,
+      type: NotificationType.NEW_REPLY,
+      title: 'New reply',
+      body: `New reply on ${grievance.trackingCode}.`,
+      grievanceId: grievance.id,
+    });
+  } else {
+    const adminIds = await this.usersService.getAdminIds();
+    for (const adminId of adminIds) {
+      await this.notificationService.notify({
+        userId: adminId,
+        type: NotificationType.NEW_REPLY,
+        title: 'Unassigned grievance has new activity',
+        body: `New reply on ${grievance.trackingCode}, which has no assigned officer.`,
+        grievanceId: grievance.id,
+      });
+    }
+  }
+}
+      else {
         await this.notificationService.notify({
           userId: grievance.citizenId,
           type: NotificationType.NEW_REPLY,
