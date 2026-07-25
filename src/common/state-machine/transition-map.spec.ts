@@ -1,5 +1,9 @@
 import { ConflictException } from '@nestjs/common';
-import { tryTransition, resolveTransition } from './transition-map';
+import {
+  tryTransition,
+  resolveTransition,
+  TRANSITIONS,
+} from './transition-map';
 import { GrievanceStatus, ActorKind, GrievanceAction } from 'src/common/enums';
 
 describe('transition map', () => {
@@ -115,6 +119,37 @@ describe('transition map', () => {
         GrievanceStatus.IN_PROGRESS,
         ActorKind.CITIZEN,
         GrievanceAction.CITIZEN_REPLY,
+      ),
+    ).toThrow(ConflictException);
+  });
+
+  it('every documented key in TRANSITIONS round-trips through tryTransition', () => {
+    for (const [key, expected] of Object.entries(TRANSITIONS)) {
+      const [status, actor, action] = key.split(':') as [
+        GrievanceStatus,
+        ActorKind,
+        GrievanceAction,
+      ];
+      expect(tryTransition(status, actor, action)).toBe(expected);
+    }
+  });
+
+  it('OPEN:admin:CLOSE returns 409 via resolveTransition', () => {
+    expect(() =>
+      resolveTransition(
+        GrievanceStatus.OPEN,
+        ActorKind.ADMIN,
+        GrievanceAction.CLOSE,
+      ),
+    ).toThrow(ConflictException);
+  });
+
+  it('OPEN:citizen:START returns 409 via resolveTransition', () => {
+    expect(() =>
+      resolveTransition(
+        GrievanceStatus.OPEN,
+        ActorKind.CITIZEN,
+        GrievanceAction.START,
       ),
     ).toThrow(ConflictException);
   });

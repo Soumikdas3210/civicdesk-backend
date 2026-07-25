@@ -36,8 +36,8 @@ import { AssignGrievanceDto } from './dto/assign-grievance.dto';
 import { QueryGrievancesDto } from './dto/query-grievance.dto';
 import { NotificationType } from 'src/common/enums';
 import { NotificationsService } from 'src/notifications/notifications.service';
-=======
 import { AuditLog } from './entities/audit-log.entity';
+
 @Injectable()
 export class GrievancesService {
   constructor(
@@ -119,7 +119,7 @@ export class GrievancesService {
 
     const saved = await this.grievanceRepo.save(grievance);
 
-    this.notificationService.notify({
+    void this.notificationService.notify({
       userId: grievance.citizenId,
       type: NotificationType.GRIEVANCE_SUBMITTED,
       title: 'Grievance received',
@@ -253,7 +253,7 @@ export class GrievancesService {
     grievance.assignedOfficerId = officer.id;
     await this.grievanceRepo.save(grievance);
 
-    this.notificationService.notify({
+    void this.notificationService.notify({
       userId: grievance.assignedOfficerId,
       type: NotificationType.GRIEVANCE_ASSIGNED,
       title: 'New grievance assigned',
@@ -306,14 +306,14 @@ export class GrievancesService {
       await this.grievanceRepo.save(grievance);
 
       if (previousOfficerId) {
-      await this.notificationService.notify({
-        userId: previousOfficerId,
-        type: NotificationType.UNASSIGNED,
-        title: 'Grievance unassigned',
-        body: `Grievance ${grievance.trackingCode} was unassigned because you no longer meet eligibility.`,
-        grievanceId: grievance.id,
-      });
-    }
+        await this.notificationService.notify({
+          userId: previousOfficerId,
+          type: NotificationType.UNASSIGNED,
+          title: 'Grievance unassigned',
+          body: `Grievance ${grievance.trackingCode} was unassigned because you no longer meet eligibility.`,
+          grievanceId: grievance.id,
+        });
+      }
 
       await this.auditService.record({
         grievanceId: grievance.id,
@@ -443,6 +443,13 @@ export class GrievancesService {
     // INV-5: resolution satisfied
     if (next === GrievanceStatus.RESOLVED) {
       grievance.resolvedAt = new Date();
+      void this.notificationService.notify({
+        userId: grievance.citizenId,
+        type: NotificationType.GRIEVANCE_RESOLVED,
+        title: 'Grievance resolved',
+        body: `Grievance ${grievance.trackingCode} has been resolved. Please rate your experience.`,
+        grievanceId: grievance.id,
+      });
     }
 
     // INV-5 + INV-9: a REOPEN starts a NEW resolution cycle
@@ -461,14 +468,6 @@ export class GrievancesService {
     const fromStatus = grievance.status;
     grievance.status = next;
     await this.grievanceRepo.save(grievance);
-
-    this.notificationService.notify({
-      userId: grievance.citizenId,
-      type: NotificationType.GRIEVANCE_RESOLVED,
-      title: 'Grievance resolved',
-      body: `Grievance ${grievance.trackingCode} has been resolved. Please rate your experience.`,
-      grievanceId: grievance.id,
-    });
 
     await this.auditService.record({
       grievanceId: grievance.id,
