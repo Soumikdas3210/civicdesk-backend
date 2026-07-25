@@ -119,12 +119,18 @@ export class GrievancesService {
 
     const saved = await this.grievanceRepo.save(grievance);
 
+    const citizen = await this.userRepo.findOne({
+      where: { id: grievance.citizenId },
+    });
+
     void this.notificationService.notify({
       userId: grievance.citizenId,
       type: NotificationType.GRIEVANCE_SUBMITTED,
       title: 'Grievance received',
       body: `Your grievance ${grievance.trackingCode} has been received.`,
       grievanceId: grievance.id,
+      toEmail: citizen?.email,
+      trackingCode: grievance.trackingCode,
     });
 
     await this.auditService.record({
@@ -259,6 +265,8 @@ export class GrievancesService {
       title: 'New grievance assigned',
       body: `Grievance ${grievance.trackingCode} has been assigned to you.`,
       grievanceId: grievance.id,
+      toEmail: officer?.email,
+      trackingCode: grievance.trackingCode,
     });
 
     await this.auditService.record({
@@ -305,23 +313,29 @@ export class GrievancesService {
       grievance.assignedOfficer = null;
       await this.grievanceRepo.save(grievance);
 
-      if (previousOfficerId) {
-        await this.notificationService.notify({
-          userId: previousOfficerId,
-          type: NotificationType.UNASSIGNED,
-          title: 'Grievance unassigned',
-          body: `Grievance ${grievance.trackingCode} was unassigned because you no longer meet eligibility.`,
-          grievanceId: grievance.id,
-        });
-      }
-
-      await this.auditService.record({
-        grievanceId: grievance.id,
-        actorId: null,
-        action: AuditAction.UNASSIGNED_INELIGIBLE,
-        metadata: { previousOfficerId, cause },
+      const previousOfficer = await this.userRepo.findOne({
+        where: { id: previousOfficerId! },
       });
-      cleared.push(grievance.id);
+      if (previousOfficerId) {
+  await this.notificationService.notify({
+    userId: previousOfficerId,
+    type: NotificationType.UNASSIGNED,
+    title: 'Grievance unassigned',
+    body: `Grievance ${grievance.trackingCode} was unassigned because you no longer meet eligibility.`,
+    grievanceId: grievance.id,
+    toEmail: previousOfficer?.email,
+    trackingCode: grievance.trackingCode,
+  });
+}
+
+await this.auditService.record({
+  grievanceId: grievance.id,
+  actorId: null,
+  action: AuditAction.UNASSIGNED_INELIGIBLE,
+  metadata: { previousOfficerId, cause },
+});
+
+cleared.push(grievance.id);
     }
     return cleared;
   }
