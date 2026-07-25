@@ -89,4 +89,12 @@ export class GrievancesController {
       role: req.user.role,
     });
   }
+
+  @Get(':id/history')
+  getHistory(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+    return this.grievancesService.getHistory(id, {
+      id: req.user.id,
+      role: req.user.role,
+    });
+  }
 }
