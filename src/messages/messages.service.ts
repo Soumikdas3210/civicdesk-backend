@@ -8,7 +8,12 @@ import { Repository } from 'typeorm';
 import { Message } from './entities/message.entity';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { GrievancesService } from 'src/grievances/grievances.service';
-import { Role, ActorKind, GrievanceAction, NotificationType } from 'src/common/enums';
+import {
+  Role,
+  ActorKind,
+  GrievanceAction,
+  NotificationType,
+} from 'src/common/enums';
 import { tryTransition } from 'src/common/state-machine/transition-map';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { UsersService } from 'src/users/users.service';
