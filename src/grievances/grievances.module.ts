@@ -13,6 +13,7 @@ import { User } from 'src/users/entities/user.entity';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { forwardRef } from '@nestjs/common';
 import { Tag } from 'src/tags/entities/tag.entity';
+import { RatingsModule } from 'src/ratings/ratings.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { Tag } from 'src/tags/entities/tag.entity';
     forwardRef(() => SlaModule),
     AiModule,
     NotificationsModule,
+    RatingsModule,
   ],
   controllers: [GrievancesController],
   providers: [GrievancesService, AuditService],

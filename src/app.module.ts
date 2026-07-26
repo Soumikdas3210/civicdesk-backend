@@ -17,6 +17,7 @@ import { MailModule } from './mail/mail.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { EscalationRulesModule } from './escalation-rules/escalation-rules.module';
 import { TagsModule } from './tags/tags.module';
+import { RatingsModule } from './ratings/ratings.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { TagsModule } from './tags/tags.module';
     MailModule,
     EscalationRulesModule,
     TagsModule,
+    RatingsModule,
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
@@ -50,6 +52,7 @@ import { TagsModule } from './tags/tags.module';
     NotificationsModule,
     EscalationRulesModule,
     TagsModule,
+    RatingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

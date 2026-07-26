@@ -10,6 +10,7 @@ import {
   ManyToMany,
   ManyToOne,
   OneToMany,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -17,6 +18,7 @@ import { Ward } from 'src/wards/entities/ward.entity';
 import { AuditLog } from './audit-log.entity';
 import { Message } from 'src/messages/entities/message.entity';
 import { Tag } from 'src/tags/entities/tag.entity';
+import { Rating } from 'src/ratings/entities/rating.entity';
 
 @Entity('grievances')
 export class Grievance {
@@ -188,7 +190,9 @@ export class Grievance {
   })
   tags: Tag[];
   
+  @OneToOne(() => Rating, (rating) => rating.grievance)
+  rating?: Rating;
+
   // Phase 2 relations. Declared now so this file is not reopened.
-  // @OneToOne(() => Rating, (rating) => rating.grievance) rating?: Rating;
   // @OneToMany(() => Attachment, (attachment) => attachment.grievance) attachments: Attachment[];
 }
