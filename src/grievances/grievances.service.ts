@@ -38,6 +38,7 @@ import { NotificationType } from 'src/common/enums';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { AuditLog } from './entities/audit-log.entity';
 import { Tag } from 'src/tags/entities/tag.entity';
+import { RatingsService } from 'src/ratings/ratings.service';
 
 @Injectable()
 export class GrievancesService {
@@ -56,6 +57,7 @@ export class GrievancesService {
     private readonly slaService: SlaService,
     @Inject(AI_SERVICE) private readonly aiService: AiService,
     private readonly notificationService: NotificationsService,
+    private readonly ratingsService: RatingsService,
   ) {}
 
   async onModuleInit() {
@@ -197,14 +199,19 @@ export class GrievancesService {
     });
   }
 
-  // Ratings don't exist until Phase 2 (P3.3). Stub now, filled in then.
-  private retractRating(
-    _grievance: Grievance,
-    _actorId: string,
+  private async retractRating(
+    grievance: Grievance,
+    actorId: string,
   ): Promise<void> {
-    void _grievance;
-    void _actorId;
-    return Promise.resolve();
+    const removed = await this.ratingsService.retractForGrievance(grievance.id);
+    if (!removed) return;
+
+    await this.auditService.record({
+      grievanceId: grievance.id,
+      actorId,
+      action: AuditAction.RATING_RETRACTED,
+      metadata: { score: removed.score, comment: removed.comment },
+    });
   }
 
   isEligible(grievance: Grievance, officer: User): boolean {
