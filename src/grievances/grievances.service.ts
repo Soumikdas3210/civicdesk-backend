@@ -37,6 +37,7 @@ import { QueryGrievancesDto } from './dto/query-grievance.dto';
 import { NotificationType } from 'src/common/enums';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { AuditLog } from './entities/audit-log.entity';
+import { Tag } from 'src/tags/entities/tag.entity';
 
 @Injectable()
 export class GrievancesService {
@@ -49,6 +50,7 @@ export class GrievancesService {
     @InjectRepository(User) private readonly userRepo: Repository<User>,
     @InjectRepository(AuditLog)
     private readonly auditLogRepo: Repository<AuditLog>,
+    @InjectRepository(Tag) private readonly tagRepo: Repository<Tag>,
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly auditService: AuditService,
     private readonly slaService: SlaService,
@@ -222,6 +224,38 @@ export class GrievancesService {
     }
   }
 
+  async retag(
+    grievanceId: string,
+    tagIds: string[],
+    actor: { id: string; role: Role },
+  ): Promise<Grievance> {
+    const grievance = await this.grievanceRepo.findOne({
+      where: { id: grievanceId },
+      relations: { tags: true },
+    });
+    if (!grievance) {
+      throw new NotFoundException(`Grievance ${grievanceId} not found`);
+    }
+
+    if (actor.role === Role.OFFICER && grievance.assignedOfficerId !== actor.id) {
+      throw new ForbiddenException(
+        'Only the assigned officer or an admin can retag this grievance',
+      );
+    }
+
+    if (tagIds.length === 0) {
+      grievance.tags = [];
+    } else {
+      const tags = await this.tagRepo.findBy({ id: In(tagIds) });
+      if (tags.length !== tagIds.length) {
+        throw new NotFoundException('One or more tags not found');
+      }
+      grievance.tags = tags;
+    }
+
+    return this.grievanceRepo.save(grievance);
+  }
+
   async assign(
     grievanceId: string,
     dto: AssignGrievanceDto,
@@ -356,7 +390,8 @@ cleared.push(grievance.id);
       .createQueryBuilder('g')
       .leftJoinAndSelect('g.category', 'category')
       .leftJoinAndSelect('category.department', 'department')
-      .leftJoinAndSelect('g.ward', 'ward');
+      .leftJoinAndSelect('g.ward', 'ward')
+      .leftJoinAndSelect('g.tags', 'tags');
 
     switch (actor.role) {
       case Role.CITIZEN:
@@ -392,6 +427,12 @@ cleared.push(grievance.id);
         departmentId: dto.departmentId,
       });
     if (dto.wardId) qb.andWhere('g.wardId = :wardId', { wardId: dto.wardId });
+    if (dto.tagId) {
+      qb.andWhere(
+        `EXISTS (SELECT 1 FROM grievance_tags gt WHERE gt."grievanceId" = g.id AND gt."tagId" = :tagId)`,
+        { tagId: dto.tagId },
+      );
+    }
     if (dto.search) {
       qb.andWhere('(g.title ILIKE :search OR g.description ILIKE :search)', {
         search: `%${dto.search}%`,

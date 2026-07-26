@@ -31,6 +31,10 @@ export class QueryGrievancesDto {
   wardId?: string;
 
   @IsOptional()
+  @IsUUID()
+  tagId?: string;
+
+  @IsOptional()
   @IsString()
   search?: string;
 

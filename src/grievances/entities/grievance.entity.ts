@@ -6,6 +6,8 @@ import {
   CreateDateColumn,
   Entity,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
@@ -14,6 +16,7 @@ import {
 import { Ward } from 'src/wards/entities/ward.entity';
 import { AuditLog } from './audit-log.entity';
 import { Message } from 'src/messages/entities/message.entity';
+import { Tag } from 'src/tags/entities/tag.entity';
 
 @Entity('grievances')
 export class Grievance {
@@ -176,8 +179,16 @@ export class Grievance {
   @OneToMany(() => AuditLog, (auditLog) => auditLog.grievance)
   auditLogs: AuditLog[];
 
+
+    @ManyToMany(() => Tag)
+  @JoinTable({
+    name: 'grievance_tags',
+    joinColumn: { name: 'grievanceId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tagId', referencedColumnName: 'id' },
+  })
+  tags: Tag[];
+  
   // Phase 2 relations. Declared now so this file is not reopened.
-  // @ManyToMany(() => Tag) @JoinTable({ name: 'grievance_tags', ... }) tags: Tag[];
   // @OneToOne(() => Rating, (rating) => rating.grievance) rating?: Rating;
   // @OneToMany(() => Attachment, (attachment) => attachment.grievance) attachments: Attachment[];
 }
