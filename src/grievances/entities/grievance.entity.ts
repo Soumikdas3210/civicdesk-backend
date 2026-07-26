@@ -19,6 +19,7 @@ import { AuditLog } from './audit-log.entity';
 import { Message } from 'src/messages/entities/message.entity';
 import { Tag } from 'src/tags/entities/tag.entity';
 import { Rating } from 'src/ratings/entities/rating.entity';
+import { Attachment } from 'src/attachments/entities/attachment.entity';
 
 @Entity('grievances')
 export class Grievance {
@@ -193,6 +194,6 @@ export class Grievance {
   @OneToOne(() => Rating, (rating) => rating.grievance)
   rating?: Rating;
 
-  // Phase 2 relations. Declared now so this file is not reopened.
-  // @OneToMany(() => Attachment, (attachment) => attachment.grievance) attachments: Attachment[];
+  @OneToMany(() => Attachment, (attachment) => attachment.grievance)
+  attachments: Attachment[];
 }
