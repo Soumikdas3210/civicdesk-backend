@@ -21,6 +21,7 @@ import { Request } from 'express';
 import { ChangeStatusDto } from './dto/change-status.dto';
 import { AssignGrievanceDto } from './dto/assign-grievance.dto';
 import { QueryGrievancesDto } from './dto/query-grievance.dto';
+import { RetagGrievanceDto } from './dto/retag-grievance.dto';
 
 interface AuthenticatedRequest extends Request {
   user: ReturnType<typeof toUserResponse>;
@@ -63,11 +64,25 @@ export class GrievancesController {
     });
   }
 
+  @Roles(Role.OFFICER, Role.ADMIN)
+  @Patch(':id/tags')
+  retag(
+    @Param('id') id: string,
+    @Body() dto: RetagGrievanceDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.grievancesService.retag(id, dto.tagIds, {
+      id: req.user.id,
+      role: req.user.role,
+    });
+  }
+
   @ApiQuery({ name: 'status', required: false, enum: GrievanceStatus })
   @ApiQuery({ name: 'priority', required: false, enum: Priority })
   @ApiQuery({ name: 'categoryId', required: false })
   @ApiQuery({ name: 'departmentId', required: false })
   @ApiQuery({ name: 'wardId', required: false })
+  @ApiQuery({ name: 'tagId', required: false })
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })

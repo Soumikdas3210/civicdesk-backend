@@ -6,14 +6,20 @@ import {
   CreateDateColumn,
   Entity,
   JoinColumn,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Ward } from 'src/wards/entities/ward.entity';
 import { AuditLog } from './audit-log.entity';
 import { Message } from 'src/messages/entities/message.entity';
+import { Tag } from 'src/tags/entities/tag.entity';
+import { Rating } from 'src/ratings/entities/rating.entity';
+import { Attachment } from 'src/attachments/entities/attachment.entity';
 
 @Entity('grievances')
 export class Grievance {
@@ -176,8 +182,18 @@ export class Grievance {
   @OneToMany(() => AuditLog, (auditLog) => auditLog.grievance)
   auditLogs: AuditLog[];
 
-  // Phase 2 relations. Declared now so this file is not reopened.
-  // @ManyToMany(() => Tag) @JoinTable({ name: 'grievance_tags', ... }) tags: Tag[];
-  // @OneToOne(() => Rating, (rating) => rating.grievance) rating?: Rating;
-  // @OneToMany(() => Attachment, (attachment) => attachment.grievance) attachments: Attachment[];
+
+    @ManyToMany(() => Tag)
+  @JoinTable({
+    name: 'grievance_tags',
+    joinColumn: { name: 'grievanceId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tagId', referencedColumnName: 'id' },
+  })
+  tags: Tag[];
+  
+  @OneToOne(() => Rating, (rating) => rating.grievance)
+  rating?: Rating;
+
+  @OneToMany(() => Attachment, (attachment) => attachment.grievance)
+  attachments: Attachment[];
 }
