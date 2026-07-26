@@ -3,11 +3,13 @@ import {
   PrimaryGeneratedColumn,
   Column,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   CreateDateColumn,
 } from 'typeorm';
 import { Grievance } from 'src/grievances/entities/grievance.entity';
 import { User } from 'src/users/entities/user.entity';
+import { Attachment } from 'src/attachments/entities/attachment.entity';
 
 @Entity('messages')
 export class Message {
@@ -35,6 +37,6 @@ export class Message {
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 
-  // Phase 2 relation. Declared now so this file is not reopened.
-  // @OneToMany(() => Attachment, (attachment) => attachment.message) attachments?: Attachment[];
+  @OneToMany(() => Attachment, (attachment) => attachment.message)
+  attachments?: Attachment[];
 }
