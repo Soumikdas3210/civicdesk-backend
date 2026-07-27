@@ -8,7 +8,7 @@ import { User } from './entities/user.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CreateUserDto } from './dto/create-user.dto';
-import { Role } from 'src/common/enums';
+import { AuditAction, Role } from 'src/common/enums';
 import * as bcrypt from 'bcryptjs';
 import { Department } from 'src/departments/entities/department.entity';
 import { toUserResponse } from 'src/common/utils/to-safe-user.util';
@@ -16,6 +16,7 @@ import { SetDepartmentDto } from './dto/set-department.dto';
 import { Ward } from 'src/wards/entities/ward.entity';
 import { SetWardsDto } from './dto/set-wards.dto';
 import { In } from 'typeorm';
+import { GrievancesService } from 'src/grievances/grievances.service';
 
 @Injectable()
 export class UsersService {
@@ -24,6 +25,7 @@ export class UsersService {
     @InjectRepository(Department)
     private readonly deptRepo: Repository<Department>,
     @InjectRepository(Ward) private readonly wardRepo: Repository<Ward>,
+    private readonly grievancesService: GrievancesService,
   ) {}
 
   async createUser(dto: CreateUserDto): Promise<User> {
@@ -79,11 +81,17 @@ export class UsersService {
     if (!dept) {
       throw new NotFoundException(`Department ${dto.departmentId} not found`);
     }
+
+    const affectedIds =
+      await this.grievancesService.grievanceIdsAssignedTo(userId);
+
     user.departmentId = dto.departmentId;
     await this.userRepo.save(user);
 
-    // TODO(4.4): const affected = await this.grievanceService.grievanceIdsAssignedTo(userId);
-    //            await this.grievanceService.reconcileAssignments(affected, AuditAction.ASSIGNED);
+    await this.grievancesService.reconcileAssignments(
+      affectedIds,
+      AuditAction.ASSIGNED,
+    );
 
     return toUserResponse(user);
   }
@@ -110,11 +118,16 @@ export class UsersService {
       throw new NotFoundException(`Ward(s) not found: ${missing.join(', ')}`);
     }
 
+    const affectedIds =
+      await this.grievancesService.grievanceIdsAssignedTo(userId);
+
     user.wards = foundWards;
     await this.userRepo.save(user);
 
-    // TODO(4.4): const affected = await this.grievanceService.grievanceIdsAssignedTo(userId);
-    //            await this.grievanceService.reconcileAssignments(affected, AuditAction.ASSIGNED);
+    await this.grievancesService.reconcileAssignments(
+      affectedIds,
+      AuditAction.ASSIGNED,
+    );
 
     return toUserResponse(user);
   }
@@ -136,4 +149,35 @@ export class UsersService {
       })),
     };
   }
+  async getAdminIds(): Promise<string[]> {
+  const admins = await this.userRepo.find({ where: { role: Role.ADMIN } });
+  return admins.map((a) => a.id);
+}
+
+async findAll(query: { role?: Role; departmentId?: string; page?: number; limit?: number }) {
+  const page = query.page ?? 1;
+  const limit = query.limit ?? 20;
+  const qb = this.userRepo.createQueryBuilder('u');
+  if (query.role) qb.andWhere('u.role = :role', { role: query.role });
+  if (query.departmentId) qb.andWhere('u.departmentId = :departmentId', { departmentId: query.departmentId });
+  const [users, total] = await qb.skip((page - 1) * limit).take(limit).getManyAndCount();
+  return { data: users.map(toUserResponse), total, page, limit };
+}
+
+async deactivate(id: string): Promise<void> {
+  const user = await this.userRepo.findOne({ where: { id } });
+  if (!user) throw new NotFoundException('User not found');
+  if (!user.isActive) return;
+
+  user.isActive = false;
+  await this.userRepo.save(user);
+
+  if (user.role === Role.OFFICER) {
+    const grievanceIds = await this.grievancesService.grievanceIdsAssignedTo(user.id);
+    if (grievanceIds.length) {
+      await this.grievancesService.reconcileAssignments(grievanceIds, AuditAction.ASSIGNED);
+    }
+  }
+}
+
 }
