@@ -12,6 +12,15 @@ import { MessagesModule } from './messages/messages.module';
 import { CommonModule } from './common/common.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { NotificationsModule } from './notifications/notifications.module';
+import { MailModule } from './mail/mail.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { EscalationRulesModule } from './escalation-rules/escalation-rules.module';
+import { TagsModule } from './tags/tags.module';
+import { RatingsModule } from './ratings/ratings.module';
+import { AttachmentsModule } from './attachments/attachments.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { CannedResponsesModule } from './canned-responses/canned-responses.module';
 
 @Module({
   imports: [
@@ -24,7 +33,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
     GrievancesModule,
     MessagesModule,
     CommonModule,
+    MailModule,
+    EscalationRulesModule,
+    TagsModule,
+    RatingsModule,
+    AttachmentsModule,
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => ({
@@ -38,6 +53,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         synchronize: cfg.get('NODE_ENV') === 'development',
       }),
     }),
+    NotificationsModule,
+    EscalationRulesModule,
+    TagsModule,
+    RatingsModule,
+    AttachmentsModule,
+    AnalyticsModule,
+    CannedResponsesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
