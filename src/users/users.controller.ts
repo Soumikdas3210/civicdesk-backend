@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Get,
+  Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { ApiBearerAuth } from '@nestjs/swagger';
@@ -17,6 +18,7 @@ import { Role } from 'src/common/enums';
 import { toUserResponse } from 'src/common/utils/to-safe-user.util';
 import { SetDepartmentDto } from './dto/set-department.dto';
 import { SetWardsDto } from './dto/set-wards.dto';
+import { ListUsersDto } from './dto/list-users.dto';
 
 @Controller('users')
 export class UsersController {
@@ -61,4 +63,16 @@ export class UsersController {
   findOne(@Param('id') id: string) {
     return this.usersService.findByIdWithWards(id);
   }
+
+@Roles(Role.ADMIN)
+@Get()
+findAll(@Query() query: ListUsersDto) {
+  return this.usersService.findAll(query);
+}
+
+@Roles(Role.ADMIN)
+@Patch(':id/deactivate')
+deactivate(@Param('id') id: string) {
+  return this.usersService.deactivate(id);
+}
 }
