@@ -18,7 +18,7 @@ import { extname } from 'path';
 import { randomUUID } from 'crypto';
 import type { Response, Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums';
@@ -38,6 +38,18 @@ export class AttachmentsController {
   constructor(private readonly service: AttachmentsService) {}
 
   @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+      required: ['file'],
+    },
+  })
   @Post('grievances/:grievanceId/attachments')
   @UseInterceptors(
     FileInterceptor('file', {
