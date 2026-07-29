@@ -153,4 +153,31 @@ export class UsersService {
   const admins = await this.userRepo.find({ where: { role: Role.ADMIN } });
   return admins.map((a) => a.id);
 }
+
+async findAll(query: { role?: Role; departmentId?: string; page?: number; limit?: number }) {
+  const page = query.page ?? 1;
+  const limit = query.limit ?? 20;
+  const qb = this.userRepo.createQueryBuilder('u');
+  if (query.role) qb.andWhere('u.role = :role', { role: query.role });
+  if (query.departmentId) qb.andWhere('u.departmentId = :departmentId', { departmentId: query.departmentId });
+  const [users, total] = await qb.skip((page - 1) * limit).take(limit).getManyAndCount();
+  return { data: users.map(toUserResponse), total, page, limit };
+}
+
+async deactivate(id: string): Promise<void> {
+  const user = await this.userRepo.findOne({ where: { id } });
+  if (!user) throw new NotFoundException('User not found');
+  if (!user.isActive) return;
+
+  user.isActive = false;
+  await this.userRepo.save(user);
+
+  if (user.role === Role.OFFICER) {
+    const grievanceIds = await this.grievancesService.grievanceIdsAssignedTo(user.id);
+    if (grievanceIds.length) {
+      await this.grievancesService.reconcileAssignments(grievanceIds, AuditAction.ASSIGNED);
+    }
+  }
+}
+
 }

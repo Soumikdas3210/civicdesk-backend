@@ -19,6 +19,8 @@ import { EscalationRulesModule } from './escalation-rules/escalation-rules.modul
 import { TagsModule } from './tags/tags.module';
 import { RatingsModule } from './ratings/ratings.module';
 import { AttachmentsModule } from './attachments/attachments.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { CannedResponsesModule } from './canned-responses/canned-responses.module';
 
 @Module({
   imports: [
@@ -56,6 +58,8 @@ import { AttachmentsModule } from './attachments/attachments.module';
     TagsModule,
     RatingsModule,
     AttachmentsModule,
+    AnalyticsModule,
+    CannedResponsesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

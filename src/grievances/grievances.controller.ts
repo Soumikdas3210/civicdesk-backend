@@ -22,6 +22,8 @@ import { ChangeStatusDto } from './dto/change-status.dto';
 import { AssignGrievanceDto } from './dto/assign-grievance.dto';
 import { QueryGrievancesDto } from './dto/query-grievance.dto';
 import { RetagGrievanceDto } from './dto/retag-grievance.dto';
+import { RecategorizeGrievanceDto } from './dto/recategorize-grievance.dto';
+import { EscalateGrievanceDto } from './dto/escalate-grievance.dto';
 
 interface AuthenticatedRequest extends Request {
   user: ReturnType<typeof toUserResponse>;
@@ -112,4 +114,43 @@ export class GrievancesController {
       role: req.user.role,
     });
   }
+
+@Roles(Role.OFFICER, Role.ADMIN)
+@Patch(':id/category')
+recategorize(
+  @Param('id') id: string,
+  @Body() dto: RecategorizeGrievanceDto,
+  @Req() req: AuthenticatedRequest,
+) {
+  return this.grievancesService.recategorize(id, dto, {
+    id: req.user.id,
+    role: req.user.role,
+  });
+}
+
+@Roles(Role.OFFICER, Role.ADMIN)
+@Patch(':id/escalate')
+escalate(
+  @Param('id') id: string,
+  @Body() dto: EscalateGrievanceDto,
+  @Req() req: AuthenticatedRequest,
+) {
+  return this.grievancesService.escalate(id, dto, {
+    id: req.user.id,
+    role: req.user.role,
+  });
+}
+
+@Roles(Role.OFFICER, Role.ADMIN)
+@Post(':id/summarize')
+summarize(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  return this.grievancesService.summarizeGrievanceThread(id, { id: req.user.id, role: req.user.role });
+}
+
+@Roles(Role.OFFICER, Role.ADMIN)
+@Post(':id/suggest-reply')
+suggestReply(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  return this.grievancesService.suggestGrievanceReply(id, { id: req.user.id, role: req.user.role });
+}
+
 }

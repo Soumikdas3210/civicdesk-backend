@@ -10,6 +10,7 @@ import { AuditLog } from './entities/audit-log.entity';
 import { AuditService } from './audit.service';
 import { SlaService } from 'src/sla/sla.service';
 import { AI_SERVICE } from 'src/ai/ai.interface';
+import { FakeAiService } from 'src/ai/fake-ai.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import { Role, GrievanceStatus, Priority } from 'src/common/enums';
 
@@ -65,10 +66,7 @@ describe('GrievancesService', () => {
         },
         { provide: AuditService, useValue: auditService },
         { provide: SlaService, useValue: slaService },
-        {
-          provide: AI_SERVICE,
-          useValue: { suggestTriage: jest.fn().mockResolvedValue(null) },
-        },
+        { provide: AI_SERVICE, useClass: FakeAiService },
         { provide: NotificationsService, useValue: notificationsService },
       ],
     }).compile();
