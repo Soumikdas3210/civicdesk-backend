@@ -6,6 +6,7 @@ import {
   Get,
   Param,
   Patch,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { WardsService } from './wards.service';
 import { ApiBearerAuth } from '@nestjs/swagger';
@@ -35,19 +36,19 @@ export class WardsController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.wardsService.findOne(id);
   }
 
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateWardDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateWardDto) {
     return this.wardsService.update(id, dto);
   }
 
   @Get(':id/officers')
-  findOfficers(@Param('id') id: string) {
+  findOfficers(@Param('id', ParseUUIDPipe) id: string) {
     return this.wardsService.findOfficers(id);
   }
 }
