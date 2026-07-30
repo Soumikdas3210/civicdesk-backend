@@ -22,7 +22,7 @@ export class MailService {
         to: input.toEmail,
         subject: `${cfg.subjectPrefix} - ${input.trackingCode ?? ''}`,
         template: cfg.template,
-        context: { body: input.body, trackingCode: input.trackingCode },
+        context: { trackingCode: input.trackingCode },
       });
     } catch (err) {
       this.logger.error('Mail send failed', err.stack);

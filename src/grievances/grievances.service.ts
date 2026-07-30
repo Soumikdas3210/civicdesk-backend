@@ -24,6 +24,7 @@ import { AI_SERVICE } from 'src/ai/ai.interface';
 import {
   AuditAction,
   Priority,
+  PRIORITY_RANK,
   Role,
   ActorKind,
   GrievanceStatus,
@@ -39,6 +40,9 @@ import { NotificationsService } from 'src/notifications/notifications.service';
 import { AuditLog } from './entities/audit-log.entity';
 import { Tag } from 'src/tags/entities/tag.entity';
 import { RatingsService } from 'src/ratings/ratings.service';
+import { RecategorizeGrievanceDto } from './dto/recategorize-grievance.dto';
+import { EscalateGrievanceDto } from './dto/escalate-grievance.dto';
+import { Message } from 'src/messages/entities/message.entity';
 
 @Injectable()
 export class GrievancesService {
@@ -505,12 +509,15 @@ cleared.push(grievance.id);
     // INV-5: resolution satisfied
     if (next === GrievanceStatus.RESOLVED) {
       grievance.resolvedAt = new Date();
+      const citizen = await this.userRepo.findOne({ where: { id: grievance.citizenId } });
       void this.notificationService.notify({
         userId: grievance.citizenId,
         type: NotificationType.GRIEVANCE_RESOLVED,
         title: 'Grievance resolved',
         body: `Grievance ${grievance.trackingCode} has been resolved. Please rate your experience.`,
         grievanceId: grievance.id,
+        toEmail: citizen?.email,
+        trackingCode: grievance.trackingCode,
       });
     }
 
@@ -587,4 +594,189 @@ cleared.push(grievance.id);
       order: { createdAt: 'DESC' },
     });
   }
+
+  async recategorize(
+  grievanceId: string,
+  dto: RecategorizeGrievanceDto,
+  actor: { id: string; role: Role },
+): Promise<Grievance> {
+  const grievance = await this.grievanceRepo.findOne({
+    where: { id: grievanceId },
+    relations: { category: true },
+  });
+  if (!grievance) {
+    throw new NotFoundException(`Grievance ${grievanceId} not found`);
+  }
+
+  if (
+    actor.role === Role.OFFICER &&
+    grievance.assignedOfficerId !== actor.id
+  ) {
+    throw new ForbiddenException(
+      'Only the assigned officer can recategorize this grievance',
+    );
+  }
+
+  const newCategory = await this.categoryRepo.findOne({
+    where: { id: dto.categoryId },
+  });
+  if (!newCategory || !newCategory.isActive) {
+    throw new NotFoundException(
+      `Category ${dto.categoryId} not found or inactive`,
+    );
+  }
+
+  const fromCategoryId = grievance.categoryId;
+  const fromDepartmentId = grievance.category.departmentId;
+
+  grievance.categoryId = newCategory.id;
+
+  const { responseDueAt, resolutionDueAt } =
+    await this.slaService.computeDeadlines(
+      newCategory.id,
+      grievance.priority,
+      grievance.createdAt, // same cycle, corrected routing (INV-4)
+    );
+  grievance.responseDueAt = responseDueAt;
+  grievance.resolutionDueAt = resolutionDueAt;
+
+  await this.grievanceRepo.save(grievance);
+
+  // INV-3: the current assignee may no longer be eligible under the new category
+  await this.reconcileAssignments([grievance.id], AuditAction.RECATEGORIZED);
+
+  await this.auditService.record({
+    grievanceId: grievance.id,
+    actorId: actor.id,
+    action: AuditAction.RECATEGORIZED,
+    metadata: {
+      fromCategory: fromCategoryId,
+      toCategory: newCategory.id,
+      fromDepartment: fromDepartmentId,
+      toDepartment: newCategory.departmentId,
+    },
+  });
+
+  return this.grievanceRepo.findOneOrFail({
+    where: { id: grievance.id },
+    relations: { category: { department: true }, ward: true },
+  });
+}
+
+async escalate(
+  grievanceId: string,
+  dto: EscalateGrievanceDto,
+  actor: { id: string; role: Role },
+): Promise<Grievance> {
+  if (!dto.targetPriority && !dto.notifyAdmin) {
+    throw new BadRequestException(
+      'Provide targetPriority, notifyAdmin, or both',
+    );
+  }
+
+  const grievance = await this.grievanceRepo.findOne({
+    where: { id: grievanceId },
+    relations: { category: true },
+  });
+  if (!grievance) {
+    throw new NotFoundException(`Grievance ${grievanceId} not found`);
+  }
+
+  if (
+    actor.role === Role.OFFICER &&
+    grievance.assignedOfficerId !== actor.id
+  ) {
+    throw new ForbiddenException(
+      'Only the assigned officer can escalate this grievance',
+    );
+  }
+
+  const previousPriority = grievance.priority;
+
+  if (dto.targetPriority) {
+    if (PRIORITY_RANK[dto.targetPriority] <= PRIORITY_RANK[grievance.priority]) {
+      throw new BadRequestException(
+        'targetPriority must be higher than the current priority',
+      );
+    }
+    grievance.priority = dto.targetPriority;
+
+    const { responseDueAt, resolutionDueAt } =
+      await this.slaService.computeDeadlines(
+        grievance.categoryId,
+        grievance.priority,
+        grievance.createdAt, // tightens the same cycle, does not restart it
+      );
+    grievance.responseDueAt = responseDueAt;
+    grievance.resolutionDueAt = resolutionDueAt;
+    await this.grievanceRepo.save(grievance);
+  }
+
+  if (dto.notifyAdmin) {
+    const admins = await this.userRepo.find({ where: { role: Role.ADMIN } });
+    for (const admin of admins) {
+      void this.notificationService.notify({
+        userId: admin.id,
+        type: NotificationType.ESCALATED,
+        title: 'Grievance escalated',
+        body: `Grievance ${grievance.trackingCode} was escalated${dto.reason ? `: ${dto.reason}` : ''}.`,
+        grievanceId: grievance.id,
+        toEmail: admin.email,
+        trackingCode: grievance.trackingCode,
+      });
+    }
+  }
+
+  await this.auditService.record({
+    grievanceId: grievance.id,
+    actorId: actor.id, // human actor, unlike the scanner's system rows
+    action: AuditAction.ESCALATED,
+    metadata: {
+      from: previousPriority,
+      to: grievance.priority,
+      reason: dto.reason,
+      notifyAdmin: !!dto.notifyAdmin,
+    },
+  });
+
+  return this.grievanceRepo.findOneOrFail({
+    where: { id: grievance.id },
+    relations: { category: { department: true }, ward: true },
+  });
+}
+
+async summarizeGrievanceThread(grievanceId: string, actor: { id: string; role: Role }) {
+  await this.findOneScoped(grievanceId, actor); // reuses your existing 404/403 rules
+
+  const messages = await this.dataSource.getRepository(Message).find({
+    where: { grievanceId },
+    relations: { author: true }, // adjust relation name if different
+    order: { createdAt: 'ASC' },
+  });
+
+  const result = await this.aiService.summarizeThread(
+    messages.map((m) => ({ author: m.author?.fullName ?? m.authorId, body: m.body })),
+  );
+  return { result };
+}
+
+async suggestGrievanceReply(grievanceId: string, actor: { id: string; role: Role }) {
+  const grievance = await this.findOneScoped(grievanceId, actor);
+  const messages = await this.dataSource.getRepository(Message).find({
+    where: { grievanceId },
+    order: { createdAt: 'DESC' },
+    take: 5,
+  });
+
+  const context = [
+    `Title: ${grievance.title}`,
+    `Description: ${grievance.description}`,
+    ...messages.reverse().map((m) => `Message: ${m.body}`),
+  ].join('\n');
+
+  const result = await this.aiService.suggestReply(context);
+  return { result };
+}
+
+
 }

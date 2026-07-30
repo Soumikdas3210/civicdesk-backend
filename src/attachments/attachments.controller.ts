@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -18,7 +19,7 @@ import { extname } from 'path';
 import { randomUUID } from 'crypto';
 import type { Response, Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
-import { ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 import { RolesGuard } from 'src/common/guards/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { Role } from 'src/common/enums';
@@ -38,6 +39,18 @@ export class AttachmentsController {
   constructor(private readonly service: AttachmentsService) {}
 
   @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+      required: ['file'],
+    },
+  })
   @Post('grievances/:grievanceId/attachments')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -58,7 +71,7 @@ export class AttachmentsController {
     }),
   )
   upload(
-    @Param('grievanceId') grievanceId: string,
+    @Param('grievanceId', ParseUUIDPipe) grievanceId: string,
     @UploadedFile() file: Express.Multer.File,
     @Body('messageId') messageId: string | undefined,
     @Req() req: AuthenticatedRequest,
@@ -72,7 +85,7 @@ export class AttachmentsController {
 
   @Get('grievances/:grievanceId/attachments')
   list(
-    @Param('grievanceId') grievanceId: string,
+    @Param('grievanceId', ParseUUIDPipe) grievanceId: string,
     @Req() req: AuthenticatedRequest,
   ) {
     return this.service.listForGrievance(grievanceId, {
@@ -83,7 +96,7 @@ export class AttachmentsController {
 
   @Get('attachments/:id')
   async download(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Req() req: AuthenticatedRequest,
     @Res() res: Response,
   ) {
@@ -95,7 +108,7 @@ export class AttachmentsController {
   }
 
   @Delete('attachments/:id')
-  remove(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
     return this.service.remove(id, {
       id: req.user.id,
       role: req.user.role,

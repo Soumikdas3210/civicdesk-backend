@@ -6,6 +6,7 @@ import {
   Body,
   UseGuards,
   Req,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
@@ -26,7 +27,7 @@ export class MessagesController {
 
   @Post(':id/messages')
   postMessage(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateMessageDto,
     @Req() req: AuthenticatedRequest,
   ) {
@@ -37,7 +38,7 @@ export class MessagesController {
   }
 
   @Get(':id/messages')
-  findThread(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  findThread(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
     return this.messagesService.findThread(id, {
       id: req.user.id,
       role: req.user.role,

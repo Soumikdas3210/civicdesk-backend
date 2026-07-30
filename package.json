@@ -21,6 +21,7 @@
     "seed": "ts-node -r tsconfig-paths/register src/seed/seed.ts"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@nestjs-modules/mailer": "^2.3.7",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
