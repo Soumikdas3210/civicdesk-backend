@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -70,7 +71,7 @@ export class AttachmentsController {
     }),
   )
   upload(
-    @Param('grievanceId') grievanceId: string,
+    @Param('grievanceId', ParseUUIDPipe) grievanceId: string,
     @UploadedFile() file: Express.Multer.File,
     @Body('messageId') messageId: string | undefined,
     @Req() req: AuthenticatedRequest,
@@ -84,7 +85,7 @@ export class AttachmentsController {
 
   @Get('grievances/:grievanceId/attachments')
   list(
-    @Param('grievanceId') grievanceId: string,
+    @Param('grievanceId', ParseUUIDPipe) grievanceId: string,
     @Req() req: AuthenticatedRequest,
   ) {
     return this.service.listForGrievance(grievanceId, {
@@ -95,7 +96,7 @@ export class AttachmentsController {
 
   @Get('attachments/:id')
   async download(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Req() req: AuthenticatedRequest,
     @Res() res: Response,
   ) {
@@ -107,7 +108,7 @@ export class AttachmentsController {
   }
 
   @Delete('attachments/:id')
-  remove(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
     return this.service.remove(id, {
       id: req.user.id,
       role: req.user.role,

@@ -6,6 +6,7 @@ import {
   Body,
   Req,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth } from '@nestjs/swagger';
@@ -30,7 +31,7 @@ export class RatingsController {
   @Roles(Role.CITIZEN)
   @Post()
   rate(
-    @Param('grievanceId') grievanceId: string,
+    @Param('grievanceId', ParseUUIDPipe) grievanceId: string,
     @Body() dto: CreateRatingDto,
     @Req() req: AuthenticatedRequest,
   ) {
@@ -43,7 +44,7 @@ export class RatingsController {
   @Roles(Role.OFFICER, Role.ADMIN)
   @Get()
   find(
-    @Param('grievanceId') grievanceId: string,
+    @Param('grievanceId', ParseUUIDPipe) grievanceId: string,
     @Req() req: AuthenticatedRequest,
   ) {
     return this.service.findForGrievance(grievanceId, {

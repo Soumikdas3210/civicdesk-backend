@@ -1,5 +1,6 @@
 import {
   Controller, Post, Get, Patch, Delete, Body, Param, Req, UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ApiBearerAuth } from '@nestjs/swagger';
@@ -37,13 +38,13 @@ export class CannedResponsesController {
 
   @Roles(Role.ADMIN)
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateCannedResponseDto) {
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCannedResponseDto) {
     return this.service.update(id, dto);
   }
 
   @Roles(Role.ADMIN)
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.remove(id);
   }
 }

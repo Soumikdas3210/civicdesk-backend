@@ -509,12 +509,15 @@ cleared.push(grievance.id);
     // INV-5: resolution satisfied
     if (next === GrievanceStatus.RESOLVED) {
       grievance.resolvedAt = new Date();
+      const citizen = await this.userRepo.findOne({ where: { id: grievance.citizenId } });
       void this.notificationService.notify({
         userId: grievance.citizenId,
         type: NotificationType.GRIEVANCE_RESOLVED,
         title: 'Grievance resolved',
         body: `Grievance ${grievance.trackingCode} has been resolved. Please rate your experience.`,
         grievanceId: grievance.id,
+        toEmail: citizen?.email,
+        trackingCode: grievance.trackingCode,
       });
     }
 

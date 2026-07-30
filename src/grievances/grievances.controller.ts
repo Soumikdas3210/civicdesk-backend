@@ -8,6 +8,7 @@ import {
   Param,
   Get,
   Query,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { GrievancesService } from './grievances.service';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -43,7 +44,7 @@ export class GrievancesController {
 
   @Patch(':id/status')
   changeStatus(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ChangeStatusDto,
     @Req() req: AuthenticatedRequest,
   ) {
@@ -56,7 +57,7 @@ export class GrievancesController {
   @Roles(Role.OFFICER, Role.ADMIN)
   @Patch(':id/assign')
   assign(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: AssignGrievanceDto,
     @Req() req: AuthenticatedRequest,
   ) {
@@ -69,7 +70,7 @@ export class GrievancesController {
   @Roles(Role.OFFICER, Role.ADMIN)
   @Patch(':id/tags')
   retag(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: RetagGrievanceDto,
     @Req() req: AuthenticatedRequest,
   ) {
@@ -100,7 +101,7 @@ export class GrievancesController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
     return this.grievancesService.findOneScoped(id, {
       id: req.user.id,
       role: req.user.role,
@@ -108,7 +109,7 @@ export class GrievancesController {
   }
 
   @Get(':id/history')
-  getHistory(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+  getHistory(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
     return this.grievancesService.getHistory(id, {
       id: req.user.id,
       role: req.user.role,
@@ -118,7 +119,7 @@ export class GrievancesController {
 @Roles(Role.OFFICER, Role.ADMIN)
 @Patch(':id/category')
 recategorize(
-  @Param('id') id: string,
+  @Param('id', ParseUUIDPipe) id: string,
   @Body() dto: RecategorizeGrievanceDto,
   @Req() req: AuthenticatedRequest,
 ) {
@@ -131,7 +132,7 @@ recategorize(
 @Roles(Role.OFFICER, Role.ADMIN)
 @Patch(':id/escalate')
 escalate(
-  @Param('id') id: string,
+  @Param('id', ParseUUIDPipe) id: string,
   @Body() dto: EscalateGrievanceDto,
   @Req() req: AuthenticatedRequest,
 ) {
@@ -143,13 +144,13 @@ escalate(
 
 @Roles(Role.OFFICER, Role.ADMIN)
 @Post(':id/summarize')
-summarize(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+summarize(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
   return this.grievancesService.summarizeGrievanceThread(id, { id: req.user.id, role: req.user.role });
 }
 
 @Roles(Role.OFFICER, Role.ADMIN)
 @Post(':id/suggest-reply')
-suggestReply(@Param('id') id: string, @Req() req: AuthenticatedRequest) {
+suggestReply(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
   return this.grievancesService.suggestGrievanceReply(id, { id: req.user.id, role: req.user.role });
 }
 

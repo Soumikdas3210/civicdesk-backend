@@ -7,6 +7,7 @@ import {
   Param,
   Get,
   Query,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { ApiBearerAuth } from '@nestjs/swagger';
@@ -44,7 +45,7 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id/department')
-  setDepartment(@Param('id') id: string, @Body() dto: SetDepartmentDto) {
+  setDepartment(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetDepartmentDto) {
     return this.usersService.setDepartment(id, dto);
   }
 
@@ -52,7 +53,7 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id/wards')
-  setWards(@Param('id') id: string, @Body() dto: SetWardsDto) {
+  setWards(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetWardsDto) {
     return this.usersService.setWards(id, dto);
   }
 
@@ -60,19 +61,24 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.usersService.findByIdWithWards(id);
+  findById(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.findById(id);
   }
 
+@ApiBearerAuth()
+@UseGuards(AuthGuard('jwt'), RolesGuard)  
 @Roles(Role.ADMIN)
 @Get()
 findAll(@Query() query: ListUsersDto) {
   return this.usersService.findAll(query);
 }
 
+
+@ApiBearerAuth()
+@UseGuards(AuthGuard('jwt'), RolesGuard)
 @Roles(Role.ADMIN)
 @Patch(':id/deactivate')
-deactivate(@Param('id') id: string) {
+deactivate(@Param('id', ParseUUIDPipe) id: string) {
   return this.usersService.deactivate(id);
 }
 }
