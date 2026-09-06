@@ -47,6 +47,8 @@ export class WardsController {
     return this.wardsService.update(id, dto);
   }
 
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
   @Get(':id/officers')
   findOfficers(@Param('id', ParseUUIDPipe) id: string) {
     return this.wardsService.findOfficers(id);
