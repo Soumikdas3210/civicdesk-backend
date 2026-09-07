@@ -1,5 +1,13 @@
 import {
-  Controller, Post, Get, Patch, Delete, Body, Param, Req, UseGuards,
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Req,
+  UseGuards,
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -25,7 +33,10 @@ export class CannedResponsesController {
 
   @Roles(Role.ADMIN)
   @Post()
-  create(@Body() dto: CreateCannedResponseDto, @Req() req: AuthenticatedRequest) {
+  create(
+    @Body() dto: CreateCannedResponseDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.service.create(dto, req.user.id);
   }
 
@@ -38,7 +49,10 @@ export class CannedResponsesController {
 
   @Roles(Role.ADMIN)
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCannedResponseDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCannedResponseDto,
+  ) {
     return this.service.update(id, dto);
   }
 

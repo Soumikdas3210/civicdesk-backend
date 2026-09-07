@@ -7,7 +7,9 @@ export class CreateCategoryDto {
   @MinLength(2)
   name: string;
 
-  @ApiPropertyOptional({ example: 'Pipeline leaks, low pressure, supply outages' })
+  @ApiPropertyOptional({
+    example: 'Pipeline leaks, low pressure, supply outages',
+  })
   @IsString()
   @IsOptional()
   description?: string;

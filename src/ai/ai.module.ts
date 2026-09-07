@@ -5,11 +5,16 @@ import { NoopAiService } from './noop-ai.service';
 import { GeminiAiService } from './gemini-ai.service';
 
 @Module({
-  providers: [{ provide: AI_SERVICE,
-    inject: [ConfigService],
-    useFactory: (cfg: ConfigService) =>
-    cfg.get('AI_ENABLED') === 'true' ? new GeminiAiService(cfg) : new NoopAiService(),
-   }],
+  providers: [
+    {
+      provide: AI_SERVICE,
+      inject: [ConfigService],
+      useFactory: (cfg: ConfigService) =>
+        cfg.get('AI_ENABLED') === 'true'
+          ? new GeminiAiService(cfg)
+          : new NoopAiService(),
+    },
+  ],
   exports: [AI_SERVICE],
 })
 export class AiModule {}

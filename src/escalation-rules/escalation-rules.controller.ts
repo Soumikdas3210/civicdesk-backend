@@ -48,7 +48,10 @@ export class EscalationRulesController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateEscalationRuleDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateEscalationRuleDto,
+  ) {
     return this.service.update(id, dto);
   }
 

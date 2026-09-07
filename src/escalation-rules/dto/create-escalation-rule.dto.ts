@@ -8,7 +8,11 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { EscalationTrigger, EscalationAction, Priority } from 'src/common/enums';
+import {
+  EscalationTrigger,
+  EscalationAction,
+  Priority,
+} from 'src/common/enums';
 
 export class CreateEscalationRuleDto {
   @ApiProperty({ example: 'Water Board unassigned 24h' })
@@ -20,7 +24,10 @@ export class CreateEscalationRuleDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiProperty({ enum: EscalationTrigger, example: EscalationTrigger.UNASSIGNED_FOR_HOURS })
+  @ApiProperty({
+    enum: EscalationTrigger,
+    example: EscalationTrigger.UNASSIGNED_FOR_HOURS,
+  })
   @IsEnum(EscalationTrigger)
   trigger: EscalationTrigger;
 
@@ -39,7 +46,10 @@ export class CreateEscalationRuleDto {
   @IsUUID()
   departmentId?: string;
 
-  @ApiProperty({ enum: EscalationAction, example: EscalationAction.NOTIFY_ADMIN })
+  @ApiProperty({
+    enum: EscalationAction,
+    example: EscalationAction.NOTIFY_ADMIN,
+  })
   @IsEnum(EscalationAction)
   action: EscalationAction;
 

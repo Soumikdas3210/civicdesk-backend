@@ -27,7 +27,12 @@ describe('NotificationsService', () => {
   it('resolves even when the repository save rejects (INV-11)', async () => {
     repo.save.mockRejectedValue(new Error('DB down'));
     await expect(
-      service.notify({ userId: '1', type: 'GRIEVANCE_SUBMITTED' as any, title: 't', body: 'b' }),
+      service.notify({
+        userId: '1',
+        type: 'GRIEVANCE_SUBMITTED' as any,
+        title: 't',
+        body: 'b',
+      }),
     ).resolves.toBeUndefined();
   });
 });

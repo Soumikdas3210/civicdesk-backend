@@ -14,20 +14,32 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('overview')
-  overview() { return this.analyticsService.getOverview(); }
+  overview() {
+    return this.analyticsService.getOverview();
+  }
 
   @Get('officers')
-  officers() { return this.analyticsService.getOfficerStats(); }
+  officers() {
+    return this.analyticsService.getOfficerStats();
+  }
 
   @Get('departments')
-  departments() { return this.analyticsService.getDepartmentStats(); }
+  departments() {
+    return this.analyticsService.getDepartmentStats();
+  }
 
   @Get('categories')
-  categories() { return this.analyticsService.getCategoryStats(); }
+  categories() {
+    return this.analyticsService.getCategoryStats();
+  }
 
   @Get('wards')
-  wards() { return this.analyticsService.getWardStats(); }
+  wards() {
+    return this.analyticsService.getWardStats();
+  }
 
   @Get('sla')
-  sla() { return this.analyticsService.getSlaStats(); }
+  sla() {
+    return this.analyticsService.getSlaStats();
+  }
 }

@@ -26,7 +26,10 @@ export class EscalationRulesService {
     return rule;
   }
 
-  async update(id: string, dto: UpdateEscalationRuleDto): Promise<EscalationRule> {
+  async update(
+    id: string,
+    dto: UpdateEscalationRuleDto,
+  ): Promise<EscalationRule> {
     const rule = await this.findOne(id);
     Object.assign(rule, dto);
     return this.repo.save(rule);

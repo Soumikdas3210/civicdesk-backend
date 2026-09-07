@@ -48,7 +48,7 @@ export class SlaScannerService {
     private readonly configService: ConfigService,
   ) {}
 
-  @Cron(CronExpression.EVERY_5_MINUTES) 
+  @Cron(CronExpression.EVERY_5_MINUTES)
   async scan() {
     await this.breachPass();
     await this.escalationPass();
@@ -73,11 +73,19 @@ export class SlaScannerService {
         Date.now() - Number(g.pausedMs) - pausedNow,
       );
 
-      if (!g.responseBreached && !g.firstRespondedAt && g.responseDueAt < effectiveNow) {
+      if (
+        !g.responseBreached &&
+        !g.firstRespondedAt &&
+        g.responseDueAt < effectiveNow
+      ) {
         g.responseBreached = true;
         await this.flagBreach(g, 'response');
       }
-      if (!g.resolutionBreached && !g.resolvedAt && g.resolutionDueAt < effectiveNow) {
+      if (
+        !g.resolutionBreached &&
+        !g.resolvedAt &&
+        g.resolutionDueAt < effectiveNow
+      ) {
         g.resolutionBreached = true;
         await this.flagBreach(g, 'resolution');
       }
@@ -134,8 +142,10 @@ export class SlaScannerService {
 
   private matches(rule: EscalationRule, g: Grievance): boolean {
     const triggerOk = this.checkTrigger(rule, g);
-    const priorityOk = !rule.priorityFilter || rule.priorityFilter === g.priority;
-    const deptOk = !rule.departmentId || rule.departmentId === g.category.departmentId;
+    const priorityOk =
+      !rule.priorityFilter || rule.priorityFilter === g.priority;
+    const deptOk =
+      !rule.departmentId || rule.departmentId === g.category.departmentId;
     return triggerOk && priorityOk && deptOk;
   }
 
@@ -153,18 +163,23 @@ export class SlaScannerService {
         return !g.resolvedAt && g.resolutionDueAt < effectiveNow;
 
       case EscalationTrigger.UNASSIGNED_FOR_HOURS: {
-  if (g.assignedOfficerId) return false;
-  if (rule.thresholdHours === undefined || rule.thresholdHours === null) return false;
-  const ageHours = (Date.now() - g.createdAt.getTime()) / (1000 * 60 * 60);
-  return ageHours >= rule.thresholdHours;
-}
+        if (g.assignedOfficerId) return false;
+        if (rule.thresholdHours === undefined || rule.thresholdHours === null)
+          return false;
+        const ageHours =
+          (Date.now() - g.createdAt.getTime()) / (1000 * 60 * 60);
+        return ageHours >= rule.thresholdHours;
+      }
 
       default:
         return false;
     }
   }
 
-  private async alreadyApplied(rule: EscalationRule, g: Grievance): Promise<boolean> {
+  private async alreadyApplied(
+    rule: EscalationRule,
+    g: Grievance,
+  ): Promise<boolean> {
     const prior = await this.auditRepo.findOne({
       where: {
         grievanceId: g.id,
@@ -178,7 +193,10 @@ export class SlaScannerService {
   private async applyRule(rule: EscalationRule, g: Grievance) {
     const previousPriority = g.priority;
 
-    if (rule.action === EscalationAction.RAISE_PRIORITY && rule.targetPriority) {
+    if (
+      rule.action === EscalationAction.RAISE_PRIORITY &&
+      rule.targetPriority
+    ) {
       if (PRIORITY_RANK[rule.targetPriority] <= PRIORITY_RANK[g.priority]) {
         // target isn't actually higher than current — record nothing, don't loop forever
         return;

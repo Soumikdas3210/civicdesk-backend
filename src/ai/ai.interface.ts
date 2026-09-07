@@ -16,7 +16,9 @@ export interface TriageInput {
 
 export interface AiService {
   suggestTriage(input: TriageInput): Promise<TriageSuggestion | null>;
-  summarizeThread(messages: { author: string; body: string }[]): Promise<string | null>;
+  summarizeThread(
+    messages: { author: string; body: string }[],
+  ): Promise<string | null>;
   suggestReply(context: string): Promise<string | null>;
 }
 

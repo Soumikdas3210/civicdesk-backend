@@ -18,33 +18,38 @@ export class NotificationsService {
   ) {}
 
   async notify(input: CreateNotificationInput): Promise<void> {
-  try {
-    const notification = this.notificationRepository.create({
-      userId: input.userId,
-      type: input.type,
-      title: input.title,
-      body: input.body,
-      grievanceId: input.grievanceId,
-    });
+    try {
+      const notification = this.notificationRepository.create({
+        userId: input.userId,
+        type: input.type,
+        title: input.title,
+        body: input.body,
+        grievanceId: input.grievanceId,
+      });
 
-    await this.notificationRepository.save(notification);
+      await this.notificationRepository.save(notification);
 
-    await this.mailService.send({
-      userId: input.userId,
-      type: input.type,
-      body: input.body,
-      grievanceId: input.grievanceId,
-      toEmail: input.toEmail,
-      trackingCode: input.trackingCode,
-    });
-  } catch (err) {
-    this.logger.error(
-      `Notification failed for user ${input.userId}`,
-      err instanceof Error ? err.stack : undefined,
-    );
+      await this.mailService.send({
+        userId: input.userId,
+        type: input.type,
+        body: input.body,
+        grievanceId: input.grievanceId,
+        toEmail: input.toEmail,
+        trackingCode: input.trackingCode,
+      });
+    } catch (err) {
+      this.logger.error(
+        `Notification failed for user ${input.userId}`,
+        err instanceof Error ? err.stack : undefined,
+      );
+    }
   }
-}
-  async list(userId: string, isRead: string | undefined, page: number, limit: number) {
+  async list(
+    userId: string,
+    isRead: string | undefined,
+    page: number,
+    limit: number,
+  ) {
     const where: any = { userId };
     if (isRead !== undefined) where.isRead = isRead === 'true';
 
@@ -62,7 +67,9 @@ export class NotificationsService {
   }
 
   async markRead(userId: string, id: string) {
-    const notification = await this.notificationRepository.findOne({ where: { id, userId } });
+    const notification = await this.notificationRepository.findOne({
+      where: { id, userId },
+    });
     if (!notification) throw new NotFoundException('Notification not found');
     notification.isRead = true;
     return this.notificationRepository.save(notification);

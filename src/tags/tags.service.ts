@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tag } from './entities/tag.entity';
@@ -14,7 +18,8 @@ export class TagsService {
 
   async create(dto: CreateTagDto): Promise<Tag> {
     const existing = await this.repo.findOne({ where: { name: dto.name } });
-    if (existing) throw new ConflictException(`Tag "${dto.name}" already exists`);
+    if (existing)
+      throw new ConflictException(`Tag "${dto.name}" already exists`);
     return this.repo.save(this.repo.create(dto));
   }
 

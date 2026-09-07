@@ -12,11 +12,16 @@ import { MailService } from './mail.service';
       inject: [ConfigService],
       useFactory: (cfg: ConfigService) => ({
         transport: {
-          host: cfg.get('MAIL_HOST'), port: +cfg.get('MAIL_PORT'),
+          host: cfg.get('MAIL_HOST'),
+          port: +cfg.get('MAIL_PORT'),
           auth: { user: cfg.get('MAIL_USER'), pass: cfg.get('MAIL_PASSWORD') },
         },
         defaults: { from: cfg.get('MAIL_FROM') },
-        template: { dir: join(__dirname, 'templates'), adapter: new HandlebarsAdapter(), options: { strict: true } },
+        template: {
+          dir: join(__dirname, 'templates'),
+          adapter: new HandlebarsAdapter(),
+          options: { strict: true },
+        },
       }),
     }),
   ],

@@ -30,7 +30,12 @@ interface AuthenticatedRequest extends Request {
   user: ReturnType<typeof toUserResponse>;
 }
 
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+const ALLOWED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+];
 
 @ApiBearerAuth()
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -108,7 +113,10 @@ export class AttachmentsController {
   }
 
   @Delete('attachments/:id')
-  remove(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.service.remove(id, {
       id: req.user.id,
       role: req.user.role,

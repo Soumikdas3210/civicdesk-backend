@@ -2,21 +2,21 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateCannedResponseDto {
-  @ApiProperty() 
-  @IsString() 
+  @ApiProperty()
+  @IsString()
   title: string;
 
-  @ApiProperty() 
-  @IsString() 
+  @ApiProperty()
+  @IsString()
   body: string;
 
-  @ApiPropertyOptional() 
-  @IsOptional() 
-  @IsUUID() 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
   departmentId?: string;
 
-  @ApiPropertyOptional() 
-  @IsOptional() 
-  @IsUUID() 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
   categoryId?: string;
 }

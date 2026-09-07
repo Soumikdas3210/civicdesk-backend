@@ -7,7 +7,8 @@ import { GrievanceStatus } from 'src/common/enums';
 @Injectable()
 export class AnalyticsService {
   constructor(
-    @InjectRepository(Grievance) private readonly grievanceRepo: Repository<Grievance>,
+    @InjectRepository(Grievance)
+    private readonly grievanceRepo: Repository<Grievance>,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
 
@@ -30,8 +31,14 @@ export class AnalyticsService {
 
     const breach = await this.grievanceRepo
       .createQueryBuilder('g')
-      .select('COUNT(*) FILTER (WHERE g.responseBreached = true)', 'responseBreaches')
-      .addSelect('COUNT(*) FILTER (WHERE g.resolutionBreached = true)', 'resolutionBreaches')
+      .select(
+        'COUNT(*) FILTER (WHERE g.responseBreached = true)',
+        'responseBreaches',
+      )
+      .addSelect(
+        'COUNT(*) FILTER (WHERE g.resolutionBreached = true)',
+        'resolutionBreaches',
+      )
       .getRawOne();
 
     return {
@@ -41,7 +48,9 @@ export class AnalyticsService {
       resolvedCount: byStatus.RESOLVED + byStatus.CLOSED,
       // current-cycle rate; see getSlaStats() note for the lifetime alternative
       responseBreachRate: total ? Number(breach.responseBreaches) / total : 0,
-      resolutionBreachRate: total ? Number(breach.resolutionBreaches) / total : 0,
+      resolutionBreachRate: total
+        ? Number(breach.resolutionBreaches) / total
+        : 0,
     };
   }
 

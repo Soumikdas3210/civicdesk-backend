@@ -53,7 +53,10 @@ export class CategoriesController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCategoryDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateCategoryDto,
+  ) {
     return this.categoriesService.update(id, dto);
   }
 

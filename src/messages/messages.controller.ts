@@ -38,7 +38,10 @@ export class MessagesController {
   }
 
   @Get(':id/messages')
-  findThread(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+  findThread(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.messagesService.findThread(id, {
       id: req.user.id,
       role: req.user.role,

@@ -143,7 +143,7 @@ async function bootstrap() {
       wardId: ward12.id,
       priority: Priority.HIGH,
     },
-    citizen1.id,
+    { id: citizen1.id, role: Role.CITIZEN },
   );
 
   // 2. IN_PROGRESS: claimed and started by Karim
@@ -156,7 +156,7 @@ async function bootstrap() {
       wardId: ward7.id,
       priority: Priority.MEDIUM,
     },
-    citizen2.id,
+    { id: citizen2.id, role: Role.CITIZEN },
   );
   await grievancesService.assign(
     g2.id,
@@ -177,7 +177,7 @@ async function bootstrap() {
       categoryId: drainage.id,
       wardId: ward12.id,
     },
-    citizen1.id,
+    { id: citizen1.id, role: Role.CITIZEN },
   );
   await grievancesService.assign(
     g3.id,
@@ -204,7 +204,7 @@ async function bootstrap() {
       wardId: ward3.id,
       priority: Priority.URGENT,
     },
-    citizen2.id,
+    { id: citizen2.id, role: Role.CITIZEN },
   );
   await grievancesService.assign(
     g4.id,
@@ -232,7 +232,7 @@ async function bootstrap() {
       wardId: ward3.id,
       priority: Priority.LOW,
     },
-    citizen1.id,
+    { id: citizen1.id, role: Role.CITIZEN },
   );
 
   logger.log(

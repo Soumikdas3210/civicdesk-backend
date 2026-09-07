@@ -6,9 +6,7 @@ import { Notification } from './entities/notification.entity';
 import { MailModule } from 'src/mail/mail.module';
 
 @Module({
-  imports: 
-  [TypeOrmModule.forFeature([Notification]),
-  MailModule,],
+  imports: [TypeOrmModule.forFeature([Notification]), MailModule],
   controllers: [NotificationsController],
   providers: [NotificationsService],
   exports: [NotificationsService],
