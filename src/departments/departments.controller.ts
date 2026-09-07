@@ -44,7 +44,10 @@ export class DepartmentsController {
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateDepartmentDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateDepartmentDto,
+  ) {
     return this.departmentsService.update(id, dto);
   }
 

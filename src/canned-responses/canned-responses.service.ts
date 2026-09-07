@@ -12,7 +12,10 @@ export class CannedResponsesService {
     private readonly repo: Repository<CannedResponse>,
   ) {}
 
-  async create(dto: CreateCannedResponseDto, adminId: string): Promise<CannedResponse> {
+  async create(
+    dto: CreateCannedResponseDto,
+    adminId: string,
+  ): Promise<CannedResponse> {
     const entity = this.repo.create({ ...dto, createdById: adminId });
     return this.repo.save(entity);
   }
@@ -21,15 +24,22 @@ export class CannedResponsesService {
     return this.repo.find({ order: { title: 'ASC' } });
   }
 
-  async findForOfficer(departmentId?: string | null): Promise<CannedResponse[]> {
-    const qb = this.repo.createQueryBuilder('c').where('c.departmentId IS NULL');
+  async findForOfficer(
+    departmentId?: string | null,
+  ): Promise<CannedResponse[]> {
+    const qb = this.repo
+      .createQueryBuilder('c')
+      .where('c.departmentId IS NULL');
     if (departmentId) {
       qb.orWhere('c.departmentId = :deptId', { deptId: departmentId });
     }
     return qb.orderBy('c.title', 'ASC').getMany();
   }
 
-  async update(id: string, dto: UpdateCannedResponseDto): Promise<CannedResponse> {
+  async update(
+    id: string,
+    dto: UpdateCannedResponseDto,
+  ): Promise<CannedResponse> {
     const entity = await this.repo.findOne({ where: { id } });
     if (!entity) throw new NotFoundException(`Canned response ${id} not found`);
     Object.assign(entity, dto);
@@ -38,6 +48,7 @@ export class CannedResponsesService {
 
   async remove(id: string): Promise<void> {
     const result = await this.repo.delete(id);
-    if (!result.affected) throw new NotFoundException(`Canned response ${id} not found`);
+    if (!result.affected)
+      throw new NotFoundException(`Canned response ${id} not found`);
   }
 }

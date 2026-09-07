@@ -1,4 +1,11 @@
-import { Entity, PrimaryGeneratedColumn, ManyToOne, JoinColumn, Column, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  ManyToOne,
+  JoinColumn,
+  Column,
+  CreateDateColumn,
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { NotificationType } from '../../common/enums';
 
@@ -9,7 +16,11 @@ export class Notification {
   @ManyToOne(() => User) @JoinColumn({ name: 'userId' }) user: User;
   @Column({ type: 'uuid' }) userId: string;
 
-  @Column({ type: 'enum', enum: NotificationType, enumName: 'notification_type_enum' })
+  @Column({
+    type: 'enum',
+    enum: NotificationType,
+    enumName: 'notification_type_enum',
+  })
   type: NotificationType;
   @Column() title: string;
   @Column({ type: 'text' }) body: string;

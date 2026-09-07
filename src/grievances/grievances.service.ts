@@ -79,12 +79,20 @@ export class GrievancesService {
     return `GRV-${year}-${String(nextval).padStart(6, '0')}`;
   }
 
-  async create(dto: CreateGrievanceDto, citizenId: string): Promise<Grievance> {
+  async create(
+    dto: CreateGrievanceDto,
+    actor: { id: string; role: Role },
+  ): Promise<Grievance> {
     const category = await this.categoryRepo.findOne({
       where: { id: dto.categoryId },
     });
     if (!category) {
       throw new NotFoundException(`Category ${dto.categoryId} not found`);
+    }
+    if (!category.isActive) {
+      throw new BadRequestException(
+        `Category ${dto.categoryId} is no longer in use`,
+      );
     }
 
     const ward = await this.wardRepo.findOne({ where: { id: dto.wardId } });
@@ -92,7 +100,11 @@ export class GrievancesService {
       throw new NotFoundException(`Ward ${dto.wardId} not found`);
     }
 
-    const priority = dto.priority ?? Priority.MEDIUM;
+    const priority =
+      actor.role === Role.CITIZEN
+        ? Priority.MEDIUM
+        : (dto.priority ?? Priority.MEDIUM);
+
     const trackingCode = await this.generateTrackingCode();
     const { responseDueAt, resolutionDueAt } =
       await this.slaService.computeDeadlines(category.id, priority);
@@ -103,7 +115,7 @@ export class GrievancesService {
       description: dto.description,
       categoryId: dto.categoryId,
       wardId: dto.wardId,
-      citizenId: citizenId,
+      citizenId: actor.id,
       priority,
       responseDueAt,
       resolutionDueAt,
@@ -143,7 +155,7 @@ export class GrievancesService {
 
     await this.auditService.record({
       grievanceId: saved.id,
-      actorId: citizenId,
+      actorId: actor.id,
       action: AuditAction.CREATED,
     });
 
@@ -248,7 +260,10 @@ export class GrievancesService {
       throw new NotFoundException(`Grievance ${grievanceId} not found`);
     }
 
-    if (actor.role === Role.OFFICER && grievance.assignedOfficerId !== actor.id) {
+    if (
+      actor.role === Role.OFFICER &&
+      grievance.assignedOfficerId !== actor.id
+    ) {
       throw new ForbiddenException(
         'Only the assigned officer or an admin can retag this grievance',
       );
@@ -362,25 +377,25 @@ export class GrievancesService {
         where: { id: previousOfficerId! },
       });
       if (previousOfficerId) {
-  await this.notificationService.notify({
-    userId: previousOfficerId,
-    type: NotificationType.UNASSIGNED,
-    title: 'Grievance unassigned',
-    body: `Grievance ${grievance.trackingCode} was unassigned because you no longer meet eligibility.`,
-    grievanceId: grievance.id,
-    toEmail: previousOfficer?.email,
-    trackingCode: grievance.trackingCode,
-  });
-}
+        await this.notificationService.notify({
+          userId: previousOfficerId,
+          type: NotificationType.UNASSIGNED,
+          title: 'Grievance unassigned',
+          body: `Grievance ${grievance.trackingCode} was unassigned because you no longer meet eligibility.`,
+          grievanceId: grievance.id,
+          toEmail: previousOfficer?.email,
+          trackingCode: grievance.trackingCode,
+        });
+      }
 
-await this.auditService.record({
-  grievanceId: grievance.id,
-  actorId: null,
-  action: AuditAction.UNASSIGNED_INELIGIBLE,
-  metadata: { previousOfficerId, cause },
-});
+      await this.auditService.record({
+        grievanceId: grievance.id,
+        actorId: null,
+        action: AuditAction.UNASSIGNED_INELIGIBLE,
+        metadata: { previousOfficerId, cause },
+      });
 
-cleared.push(grievance.id);
+      cleared.push(grievance.id);
     }
     return cleared;
   }
@@ -509,7 +524,9 @@ cleared.push(grievance.id);
     // INV-5: resolution satisfied
     if (next === GrievanceStatus.RESOLVED) {
       grievance.resolvedAt = new Date();
-      const citizen = await this.userRepo.findOne({ where: { id: grievance.citizenId } });
+      const citizen = await this.userRepo.findOne({
+        where: { id: grievance.citizenId },
+      });
       void this.notificationService.notify({
         userId: grievance.citizenId,
         type: NotificationType.GRIEVANCE_RESOLVED,
@@ -596,187 +613,196 @@ cleared.push(grievance.id);
   }
 
   async recategorize(
-  grievanceId: string,
-  dto: RecategorizeGrievanceDto,
-  actor: { id: string; role: Role },
-): Promise<Grievance> {
-  const grievance = await this.grievanceRepo.findOne({
-    where: { id: grievanceId },
-    relations: { category: true },
-  });
-  if (!grievance) {
-    throw new NotFoundException(`Grievance ${grievanceId} not found`);
-  }
+    grievanceId: string,
+    dto: RecategorizeGrievanceDto,
+    actor: { id: string; role: Role },
+  ): Promise<Grievance> {
+    const grievance = await this.grievanceRepo.findOne({
+      where: { id: grievanceId },
+      relations: { category: true },
+    });
+    if (!grievance) {
+      throw new NotFoundException(`Grievance ${grievanceId} not found`);
+    }
 
-  if (
-    actor.role === Role.OFFICER &&
-    grievance.assignedOfficerId !== actor.id
-  ) {
-    throw new ForbiddenException(
-      'Only the assigned officer can recategorize this grievance',
-    );
-  }
-
-  const newCategory = await this.categoryRepo.findOne({
-    where: { id: dto.categoryId },
-  });
-  if (!newCategory || !newCategory.isActive) {
-    throw new NotFoundException(
-      `Category ${dto.categoryId} not found or inactive`,
-    );
-  }
-
-  const fromCategoryId = grievance.categoryId;
-  const fromDepartmentId = grievance.category.departmentId;
-
-  grievance.categoryId = newCategory.id;
-
-  const { responseDueAt, resolutionDueAt } =
-    await this.slaService.computeDeadlines(
-      newCategory.id,
-      grievance.priority,
-      grievance.createdAt, // same cycle, corrected routing (INV-4)
-    );
-  grievance.responseDueAt = responseDueAt;
-  grievance.resolutionDueAt = resolutionDueAt;
-
-  await this.grievanceRepo.save(grievance);
-
-  // INV-3: the current assignee may no longer be eligible under the new category
-  await this.reconcileAssignments([grievance.id], AuditAction.RECATEGORIZED);
-
-  await this.auditService.record({
-    grievanceId: grievance.id,
-    actorId: actor.id,
-    action: AuditAction.RECATEGORIZED,
-    metadata: {
-      fromCategory: fromCategoryId,
-      toCategory: newCategory.id,
-      fromDepartment: fromDepartmentId,
-      toDepartment: newCategory.departmentId,
-    },
-  });
-
-  return this.grievanceRepo.findOneOrFail({
-    where: { id: grievance.id },
-    relations: { category: { department: true }, ward: true },
-  });
-}
-
-async escalate(
-  grievanceId: string,
-  dto: EscalateGrievanceDto,
-  actor: { id: string; role: Role },
-): Promise<Grievance> {
-  if (!dto.targetPriority && !dto.notifyAdmin) {
-    throw new BadRequestException(
-      'Provide targetPriority, notifyAdmin, or both',
-    );
-  }
-
-  const grievance = await this.grievanceRepo.findOne({
-    where: { id: grievanceId },
-    relations: { category: true },
-  });
-  if (!grievance) {
-    throw new NotFoundException(`Grievance ${grievanceId} not found`);
-  }
-
-  if (
-    actor.role === Role.OFFICER &&
-    grievance.assignedOfficerId !== actor.id
-  ) {
-    throw new ForbiddenException(
-      'Only the assigned officer can escalate this grievance',
-    );
-  }
-
-  const previousPriority = grievance.priority;
-
-  if (dto.targetPriority) {
-    if (PRIORITY_RANK[dto.targetPriority] <= PRIORITY_RANK[grievance.priority]) {
-      throw new BadRequestException(
-        'targetPriority must be higher than the current priority',
+    if (
+      actor.role === Role.OFFICER &&
+      grievance.assignedOfficerId !== actor.id
+    ) {
+      throw new ForbiddenException(
+        'Only the assigned officer can recategorize this grievance',
       );
     }
-    grievance.priority = dto.targetPriority;
+
+    const newCategory = await this.categoryRepo.findOne({
+      where: { id: dto.categoryId },
+    });
+    if (!newCategory || !newCategory.isActive) {
+      throw new NotFoundException(
+        `Category ${dto.categoryId} not found or inactive`,
+      );
+    }
+
+    const fromCategoryId = grievance.categoryId;
+    const fromDepartmentId = grievance.category.departmentId;
+
+    grievance.categoryId = newCategory.id;
 
     const { responseDueAt, resolutionDueAt } =
       await this.slaService.computeDeadlines(
-        grievance.categoryId,
+        newCategory.id,
         grievance.priority,
-        grievance.createdAt, // tightens the same cycle, does not restart it
+        grievance.createdAt, // same cycle, corrected routing (INV-4)
       );
     grievance.responseDueAt = responseDueAt;
     grievance.resolutionDueAt = resolutionDueAt;
+
     await this.grievanceRepo.save(grievance);
+
+    // INV-3: the current assignee may no longer be eligible under the new category
+    await this.reconcileAssignments([grievance.id], AuditAction.RECATEGORIZED);
+
+    await this.auditService.record({
+      grievanceId: grievance.id,
+      actorId: actor.id,
+      action: AuditAction.RECATEGORIZED,
+      metadata: {
+        fromCategory: fromCategoryId,
+        toCategory: newCategory.id,
+        fromDepartment: fromDepartmentId,
+        toDepartment: newCategory.departmentId,
+      },
+    });
+
+    return this.grievanceRepo.findOneOrFail({
+      where: { id: grievance.id },
+      relations: { category: { department: true }, ward: true },
+    });
   }
 
-  if (dto.notifyAdmin) {
-    const admins = await this.userRepo.find({ where: { role: Role.ADMIN } });
-    for (const admin of admins) {
-      void this.notificationService.notify({
-        userId: admin.id,
-        type: NotificationType.ESCALATED,
-        title: 'Grievance escalated',
-        body: `Grievance ${grievance.trackingCode} was escalated${dto.reason ? `: ${dto.reason}` : ''}.`,
-        grievanceId: grievance.id,
-        toEmail: admin.email,
-        trackingCode: grievance.trackingCode,
-      });
+  async escalate(
+    grievanceId: string,
+    dto: EscalateGrievanceDto,
+    actor: { id: string; role: Role },
+  ): Promise<Grievance> {
+    if (!dto.targetPriority && !dto.notifyAdmin) {
+      throw new BadRequestException(
+        'Provide targetPriority, notifyAdmin, or both',
+      );
     }
+
+    const grievance = await this.grievanceRepo.findOne({
+      where: { id: grievanceId },
+      relations: { category: true },
+    });
+    if (!grievance) {
+      throw new NotFoundException(`Grievance ${grievanceId} not found`);
+    }
+
+    if (
+      actor.role === Role.OFFICER &&
+      grievance.assignedOfficerId !== actor.id
+    ) {
+      throw new ForbiddenException(
+        'Only the assigned officer can escalate this grievance',
+      );
+    }
+
+    const previousPriority = grievance.priority;
+
+    if (dto.targetPriority) {
+      if (
+        PRIORITY_RANK[dto.targetPriority] <= PRIORITY_RANK[grievance.priority]
+      ) {
+        throw new BadRequestException(
+          'targetPriority must be higher than the current priority',
+        );
+      }
+      grievance.priority = dto.targetPriority;
+
+      const { responseDueAt, resolutionDueAt } =
+        await this.slaService.computeDeadlines(
+          grievance.categoryId,
+          grievance.priority,
+          grievance.createdAt, // tightens the same cycle, does not restart it
+        );
+      grievance.responseDueAt = responseDueAt;
+      grievance.resolutionDueAt = resolutionDueAt;
+      await this.grievanceRepo.save(grievance);
+    }
+
+    if (dto.notifyAdmin) {
+      const admins = await this.userRepo.find({ where: { role: Role.ADMIN } });
+      for (const admin of admins) {
+        void this.notificationService.notify({
+          userId: admin.id,
+          type: NotificationType.ESCALATED,
+          title: 'Grievance escalated',
+          body: `Grievance ${grievance.trackingCode} was escalated${dto.reason ? `: ${dto.reason}` : ''}.`,
+          grievanceId: grievance.id,
+          toEmail: admin.email,
+          trackingCode: grievance.trackingCode,
+        });
+      }
+    }
+
+    await this.auditService.record({
+      grievanceId: grievance.id,
+      actorId: actor.id, // human actor, unlike the scanner's system rows
+      action: AuditAction.ESCALATED,
+      metadata: {
+        from: previousPriority,
+        to: grievance.priority,
+        reason: dto.reason,
+        notifyAdmin: !!dto.notifyAdmin,
+      },
+    });
+
+    return this.grievanceRepo.findOneOrFail({
+      where: { id: grievance.id },
+      relations: { category: { department: true }, ward: true },
+    });
   }
 
-  await this.auditService.record({
-    grievanceId: grievance.id,
-    actorId: actor.id, // human actor, unlike the scanner's system rows
-    action: AuditAction.ESCALATED,
-    metadata: {
-      from: previousPriority,
-      to: grievance.priority,
-      reason: dto.reason,
-      notifyAdmin: !!dto.notifyAdmin,
-    },
-  });
+  async summarizeGrievanceThread(
+    grievanceId: string,
+    actor: { id: string; role: Role },
+  ) {
+    await this.findOneScoped(grievanceId, actor); // reuses your existing 404/403 rules
 
-  return this.grievanceRepo.findOneOrFail({
-    where: { id: grievance.id },
-    relations: { category: { department: true }, ward: true },
-  });
-}
+    const messages = await this.dataSource.getRepository(Message).find({
+      where: { grievanceId },
+      relations: { author: true }, // adjust relation name if different
+      order: { createdAt: 'ASC' },
+    });
 
-async summarizeGrievanceThread(grievanceId: string, actor: { id: string; role: Role }) {
-  await this.findOneScoped(grievanceId, actor); // reuses your existing 404/403 rules
+    const result = await this.aiService.summarizeThread(
+      messages.map((m) => ({
+        author: m.author?.fullName ?? m.authorId,
+        body: m.body,
+      })),
+    );
+    return { result };
+  }
 
-  const messages = await this.dataSource.getRepository(Message).find({
-    where: { grievanceId },
-    relations: { author: true }, // adjust relation name if different
-    order: { createdAt: 'ASC' },
-  });
+  async suggestGrievanceReply(
+    grievanceId: string,
+    actor: { id: string; role: Role },
+  ) {
+    const grievance = await this.findOneScoped(grievanceId, actor);
+    const messages = await this.dataSource.getRepository(Message).find({
+      where: { grievanceId },
+      order: { createdAt: 'DESC' },
+      take: 5,
+    });
 
-  const result = await this.aiService.summarizeThread(
-    messages.map((m) => ({ author: m.author?.fullName ?? m.authorId, body: m.body })),
-  );
-  return { result };
-}
+    const context = [
+      `Title: ${grievance.title}`,
+      `Description: ${grievance.description}`,
+      ...messages.reverse().map((m) => `Message: ${m.body}`),
+    ].join('\n');
 
-async suggestGrievanceReply(grievanceId: string, actor: { id: string; role: Role }) {
-  const grievance = await this.findOneScoped(grievanceId, actor);
-  const messages = await this.dataSource.getRepository(Message).find({
-    where: { grievanceId },
-    order: { createdAt: 'DESC' },
-    take: 5,
-  });
-
-  const context = [
-    `Title: ${grievance.title}`,
-    `Description: ${grievance.description}`,
-    ...messages.reverse().map((m) => `Message: ${m.body}`),
-  ].join('\n');
-
-  const result = await this.aiService.suggestReply(context);
-  return { result };
-}
-
-
+    const result = await this.aiService.suggestReply(context);
+    return { result };
+  }
 }

@@ -45,7 +45,10 @@ export class UsersController {
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
   @Patch(':id/department')
-  setDepartment(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetDepartmentDto) {
+  setDepartment(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetDepartmentDto,
+  ) {
     return this.usersService.setDepartment(id, dto);
   }
 
@@ -65,20 +68,19 @@ export class UsersController {
     return this.usersService.findById(id);
   }
 
-@ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), RolesGuard)  
-@Roles(Role.ADMIN)
-@Get()
-findAll(@Query() query: ListUsersDto) {
-  return this.usersService.findAll(query);
-}
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
+  @Get()
+  findAll(@Query() query: ListUsersDto) {
+    return this.usersService.findAll(query);
+  }
 
-
-@ApiBearerAuth()
-@UseGuards(AuthGuard('jwt'), RolesGuard)
-@Roles(Role.ADMIN)
-@Patch(':id/deactivate')
-deactivate(@Param('id', ParseUUIDPipe) id: string) {
-  return this.usersService.deactivate(id);
-}
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch(':id/deactivate')
+  deactivate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.deactivate(id);
+  }
 }

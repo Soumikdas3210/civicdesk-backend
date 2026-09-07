@@ -10,7 +10,9 @@ export class GeminiAiService implements AiService {
   private readonly model: GenerativeModel;
 
   constructor(cfg: ConfigService) {
-    const client = new GoogleGenerativeAI(cfg.get<string>('GEMINI_API_KEY') ?? '');
+    const client = new GoogleGenerativeAI(
+      cfg.get<string>('GEMINI_API_KEY') ?? '',
+    );
     this.model = client.getGenerativeModel({
       model: cfg.get<string>('GEMINI_MODEL') ?? 'gemini-2.5-flash',
     });
@@ -25,7 +27,10 @@ export class GeminiAiService implements AiService {
       const prompt = `Grievance titled "${input.title}", described as "${input.description}". Pick the best category id from: ${JSON.stringify(input.categories)} and a priority (LOW, MEDIUM, HIGH, URGENT). Respond ONLY with JSON: {"categoryId": string, "priority": string}`;
       const result = await this.model.generateContent(prompt);
       const parsed = JSON.parse(result.response.text());
-      return { categoryId: parsed.categoryId ?? null, priority: (parsed.priority as Priority) ?? null };
+      return {
+        categoryId: parsed.categoryId ?? null,
+        priority: (parsed.priority as Priority) ?? null,
+      };
     });
   }
 

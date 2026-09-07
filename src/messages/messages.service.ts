@@ -60,28 +60,27 @@ export class MessagesService {
 
     if (!isInternal) {
       if (actor.role === Role.CITIZEN) {
-  if (grievance.assignedOfficerId) {
-    await this.notificationService.notify({
-      userId: grievance.assignedOfficerId,
-      type: NotificationType.NEW_REPLY,
-      title: 'New reply',
-      body: `New reply on ${grievance.trackingCode}.`,
-      grievanceId: grievance.id,
-    });
-  } else {
-    const adminIds = await this.usersService.getAdminIds();
-    for (const adminId of adminIds) {
-      await this.notificationService.notify({
-        userId: adminId,
-        type: NotificationType.NEW_REPLY,
-        title: 'Unassigned grievance has new activity',
-        body: `New reply on ${grievance.trackingCode}, which has no assigned officer.`,
-        grievanceId: grievance.id,
-      });
-    }
-  }
-}
-      else {
+        if (grievance.assignedOfficerId) {
+          await this.notificationService.notify({
+            userId: grievance.assignedOfficerId,
+            type: NotificationType.NEW_REPLY,
+            title: 'New reply',
+            body: `New reply on ${grievance.trackingCode}.`,
+            grievanceId: grievance.id,
+          });
+        } else {
+          const adminIds = await this.usersService.getAdminIds();
+          for (const adminId of adminIds) {
+            await this.notificationService.notify({
+              userId: adminId,
+              type: NotificationType.NEW_REPLY,
+              title: 'Unassigned grievance has new activity',
+              body: `New reply on ${grievance.trackingCode}, which has no assigned officer.`,
+              grievanceId: grievance.id,
+            });
+          }
+        }
+      } else {
         await this.notificationService.notify({
           userId: grievance.citizenId,
           type: NotificationType.NEW_REPLY,

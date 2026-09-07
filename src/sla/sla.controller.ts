@@ -41,7 +41,10 @@ export class SlaController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateSLAPolicyDto) {
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateSLAPolicyDto,
+  ) {
     return this.slaService.update(id, dto);
   }
 

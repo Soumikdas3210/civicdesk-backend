@@ -7,7 +7,9 @@ export class CreateDepartmentDto {
   @MinLength(2)
   name: string;
 
-  @ApiPropertyOptional({ example: 'Handles water supply, pipelines, and drainage complaints' })
+  @ApiPropertyOptional({
+    example: 'Handles water supply, pipelines, and drainage complaints',
+  })
   @IsOptional()
   @IsString()
   description?: string;

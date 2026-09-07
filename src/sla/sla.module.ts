@@ -15,10 +15,16 @@ import { EscalationRule } from 'src/escalation-rules/entities/escalation-rule.en
 
 @Module({
   imports: [
-  TypeOrmModule.forFeature([SLAPolicy, Grievance, AuditLog, Category, EscalationRule]),
-  NotificationsModule,
-  forwardRef(() => UsersModule),
-],
+    TypeOrmModule.forFeature([
+      SLAPolicy,
+      Grievance,
+      AuditLog,
+      Category,
+      EscalationRule,
+    ]),
+    NotificationsModule,
+    forwardRef(() => UsersModule),
+  ],
   controllers: [SlaController],
   providers: [SlaService, SlaScannerService, AuditService],
   exports: [SlaService],

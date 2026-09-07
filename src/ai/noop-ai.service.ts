@@ -8,7 +8,9 @@ export class NoopAiService implements AiService {
     return Promise.resolve(null);
   }
 
-  summarizeThread(messages: { author: string; body: string }[]): Promise<string | null> {
+  summarizeThread(
+    messages: { author: string; body: string }[],
+  ): Promise<string | null> {
     void messages;
     return Promise.resolve(null);
   }

@@ -39,7 +39,10 @@ export class GrievancesController {
   @Roles(Role.CITIZEN)
   @Post()
   create(@Body() dto: CreateGrievanceDto, @Req() req: AuthenticatedRequest) {
-    return this.grievancesService.create(dto, req.user.id);
+    return this.grievancesService.create(dto, {
+      id: req.user.id,
+      role: req.user.role,
+    });
   }
 
   @Patch(':id/status')
@@ -101,7 +104,10 @@ export class GrievancesController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.grievancesService.findOneScoped(id, {
       id: req.user.id,
       role: req.user.role,
@@ -109,49 +115,63 @@ export class GrievancesController {
   }
 
   @Get(':id/history')
-  getHistory(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
+  getHistory(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
     return this.grievancesService.getHistory(id, {
       id: req.user.id,
       role: req.user.role,
     });
   }
 
-@Roles(Role.OFFICER, Role.ADMIN)
-@Patch(':id/category')
-recategorize(
-  @Param('id', ParseUUIDPipe) id: string,
-  @Body() dto: RecategorizeGrievanceDto,
-  @Req() req: AuthenticatedRequest,
-) {
-  return this.grievancesService.recategorize(id, dto, {
-    id: req.user.id,
-    role: req.user.role,
-  });
-}
+  @Roles(Role.OFFICER, Role.ADMIN)
+  @Patch(':id/category')
+  recategorize(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RecategorizeGrievanceDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.grievancesService.recategorize(id, dto, {
+      id: req.user.id,
+      role: req.user.role,
+    });
+  }
 
-@Roles(Role.OFFICER, Role.ADMIN)
-@Patch(':id/escalate')
-escalate(
-  @Param('id', ParseUUIDPipe) id: string,
-  @Body() dto: EscalateGrievanceDto,
-  @Req() req: AuthenticatedRequest,
-) {
-  return this.grievancesService.escalate(id, dto, {
-    id: req.user.id,
-    role: req.user.role,
-  });
-}
+  @Roles(Role.OFFICER, Role.ADMIN)
+  @Patch(':id/escalate')
+  escalate(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: EscalateGrievanceDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.grievancesService.escalate(id, dto, {
+      id: req.user.id,
+      role: req.user.role,
+    });
+  }
 
-@Roles(Role.OFFICER, Role.ADMIN)
-@Post(':id/summarize')
-summarize(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
-  return this.grievancesService.summarizeGrievanceThread(id, { id: req.user.id, role: req.user.role });
-}
+  @Roles(Role.OFFICER, Role.ADMIN)
+  @Post(':id/summarize')
+  summarize(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.grievancesService.summarizeGrievanceThread(id, {
+      id: req.user.id,
+      role: req.user.role,
+    });
+  }
 
-@Roles(Role.OFFICER, Role.ADMIN)
-@Post(':id/suggest-reply')
-suggestReply(@Param('id', ParseUUIDPipe) id: string, @Req() req: AuthenticatedRequest) {
-  return this.grievancesService.suggestGrievanceReply(id, { id: req.user.id, role: req.user.role });
-}
-
+  @Roles(Role.OFFICER, Role.ADMIN)
+  @Post(':id/suggest-reply')
+  suggestReply(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.grievancesService.suggestGrievanceReply(id, {
+      id: req.user.id,
+      role: req.user.role,
+    });
+  }
 }

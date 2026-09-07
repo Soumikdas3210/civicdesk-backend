@@ -182,15 +182,14 @@ export class Grievance {
   @OneToMany(() => AuditLog, (auditLog) => auditLog.grievance)
   auditLogs: AuditLog[];
 
-
-    @ManyToMany(() => Tag)
+  @ManyToMany(() => Tag)
   @JoinTable({
     name: 'grievance_tags',
     joinColumn: { name: 'grievanceId', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'tagId', referencedColumnName: 'id' },
   })
   tags: Tag[];
-  
+
   @OneToOne(() => Rating, (rating) => rating.grievance)
   rating?: Rating;
 

@@ -58,7 +58,6 @@ export enum AuditAction {
   RULE_APPLIED = 'RULE_APPLIED', // INV-7 idempotency marker
   BREACH_FLAGGED = 'BREACH_FLAGGED', // INV-5 lifetime record
   RATING_RETRACTED = 'RATING_RETRACTED', // INV-9 maintenance
-  
 }
 
 export enum NotificationType {
@@ -83,4 +82,3 @@ export enum EscalationAction {
   RAISE_PRIORITY = 'RAISE_PRIORITY',
   NOTIFY_ADMIN = 'NOTIFY_ADMIN',
 }
-
