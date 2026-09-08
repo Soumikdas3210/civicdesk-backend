@@ -805,4 +805,25 @@ export class GrievancesService {
     const result = await this.aiService.suggestReply(context);
     return { result };
   }
+
+    async eligibleOfficers(grievanceId: string): Promise<User[]> {
+    const grievance = await this.grievanceRepo.findOne({
+      where: { id: grievanceId },
+      relations: { category: true },
+    });
+    if (!grievance) {
+      throw new NotFoundException(`Grievance ${grievanceId} not found`);
+    }
+
+    const officers = await this.userRepo.find({
+      where: {
+        role: Role.OFFICER,
+        isActive: true,
+        departmentId: grievance.category.departmentId,
+      },
+      relations: { wards: true },
+    });
+
+    return officers.filter((officer) => this.isEligible(grievance, officer));
+  }
 }
