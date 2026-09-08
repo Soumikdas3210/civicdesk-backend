@@ -103,15 +103,12 @@ export class GrievancesController {
     });
   }
 
-  @Get(':id')
-  findOne(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Req() req: AuthenticatedRequest,
-  ) {
-    return this.grievancesService.findOneScoped(id, {
-      id: req.user.id,
-      role: req.user.role,
-    });
+  @Roles(Role.ADMIN)
+  @Get(':id/eligible-officers')
+  eligibleOfficers(@Param('id', ParseUUIDPipe) id: string) {
+    return this.grievancesService
+      .eligibleOfficers(id)
+      .then((officers) => officers.map(toUserResponse));
   }
 
   @Get(':id/history')
@@ -120,6 +117,17 @@ export class GrievancesController {
     @Req() req: AuthenticatedRequest,
   ) {
     return this.grievancesService.getHistory(id, {
+      id: req.user.id,
+      role: req.user.role,
+    });
+  }
+
+  @Get(':id')
+  findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.grievancesService.findOneWithActions(id, {
       id: req.user.id,
       role: req.user.role,
     });
@@ -173,13 +181,5 @@ export class GrievancesController {
       id: req.user.id,
       role: req.user.role,
     });
-  }
-
-  @Roles(Role.ADMIN)
-  @Get(':id/eligible-officers')
-  eligibleOfficers(@Param('id', ParseUUIDPipe) id: string) {
-    return this.grievancesService
-      .eligibleOfficers(id)
-      .then((officers) => officers.map(toUserResponse));
   }
 }
