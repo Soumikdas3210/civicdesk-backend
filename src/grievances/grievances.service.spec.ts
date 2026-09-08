@@ -1,17 +1,23 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
-import { ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { GrievancesService } from './grievances.service';
 import { Grievance } from './entities/grievance.entity';
 import { Category } from 'src/categories/entities/category.entity';
 import { Ward } from 'src/wards/entities/ward.entity';
 import { User } from 'src/users/entities/user.entity';
 import { AuditLog } from './entities/audit-log.entity';
+import { Tag } from 'src/tags/entities/tag.entity';
 import { AuditService } from './audit.service';
 import { SlaService } from 'src/sla/sla.service';
 import { AI_SERVICE } from 'src/ai/ai.interface';
 import { FakeAiService } from 'src/ai/fake-ai.service';
 import { NotificationsService } from 'src/notifications/notifications.service';
+import { RatingsService } from 'src/ratings/ratings.service';
 import { Role, GrievanceStatus, Priority } from 'src/common/enums';
 
 describe('GrievancesService', () => {
@@ -23,7 +29,7 @@ describe('GrievancesService', () => {
     create: jest.Mock;
     findOneOrFail: jest.Mock;
   };
-  let userRepo: { findOne: jest.Mock };
+  let userRepo: { findOne: jest.Mock; find: jest.Mock };
   let slaService: { computeDeadlines: jest.Mock };
   let auditService: { record: jest.Mock };
   let notificationsService: { notify: jest.Mock };
@@ -36,7 +42,7 @@ describe('GrievancesService', () => {
       create: jest.fn((dto) => dto),
       findOneOrFail: jest.fn((opts) => grievanceRepo.findOne(opts)),
     };
-    userRepo = { findOne: jest.fn() };
+    userRepo = { findOne: jest.fn(), find: jest.fn() };
     slaService = {
       computeDeadlines: jest.fn().mockResolvedValue({
         responseDueAt: new Date('2026-01-02T00:00:00.000Z'),
@@ -60,6 +66,7 @@ describe('GrievancesService', () => {
           provide: getRepositoryToken(AuditLog),
           useValue: { find: jest.fn() },
         },
+        { provide: getRepositoryToken(Tag), useValue: { findBy: jest.fn() } },
         {
           provide: getDataSourceToken(),
           useValue: { query: jest.fn(), getRepository: jest.fn() },
@@ -68,6 +75,10 @@ describe('GrievancesService', () => {
         { provide: SlaService, useValue: slaService },
         { provide: AI_SERVICE, useClass: FakeAiService },
         { provide: NotificationsService, useValue: notificationsService },
+        {
+          provide: RatingsService,
+          useValue: { retractForGrievance: jest.fn().mockResolvedValue(null) },
+        },
       ],
     }).compile();
 
@@ -343,6 +354,35 @@ describe('GrievancesService', () => {
     });
   });
 
+  describe('eligibleOfficers', () => {
+    it('returns only officers who pass isEligible', async () => {
+      const g = makeGrievance({ categoryId: 'cat-1', wardId: 'ward-1' });
+      g.category = { departmentId: 'dept-A' } as any;
+      grievanceRepo.findOne.mockResolvedValue(g);
+
+      userRepo.find.mockResolvedValue([
+        {
+          id: 'covers-the-ward',
+          role: Role.OFFICER,
+          isActive: true,
+          departmentId: 'dept-A',
+          wards: [{ id: 'ward-1' }],
+        },
+        {
+          id: 'wrong-ward',
+          role: Role.OFFICER,
+          isActive: true,
+          departmentId: 'dept-A',
+          wards: [{ id: 'ward-2' }],
+        },
+      ]);
+
+      const result = await service.eligibleOfficers('g-1');
+
+      expect(result.map((o) => o.id)).toEqual(['covers-the-ward']);
+    });
+  });
+
   describe('reconcileAssignments', () => {
     it("changing an officer's department unassigns their grievances", async () => {
       const g = makeGrievance({
@@ -497,19 +537,19 @@ describe('GrievancesService', () => {
   });
 
   describe('create', () => {
-    it('submit with no SLA policy still yields non-null deadlines', async () => {
-      const categoryRepoMock = {
-        findOne: jest.fn().mockResolvedValue({
-          id: 'cat-1',
-          name: 'Pipe Leak',
-          isActive: true,
-        }),
-      };
-      const wardRepoMock = {
+    const activeCategory = {
+      findOne: jest.fn().mockResolvedValue({
+        id: 'cat-1',
+        name: 'Pipe Leak',
+        isActive: true,
+      }),
+    };
+
+    const primeCreate = () => {
+      (service as any).categoryRepo = activeCategory;
+      (service as any).wardRepo = {
         findOne: jest.fn().mockResolvedValue({ id: 'ward-1' }),
       };
-      (service as any).categoryRepo = categoryRepoMock;
-      (service as any).wardRepo = wardRepoMock;
       (service as any).dataSource.query = jest
         .fn()
         .mockResolvedValue([{ nextval: '1' }]);
@@ -525,6 +565,10 @@ describe('GrievancesService', () => {
         responseDueAt: new Date(),
         resolutionDueAt: new Date(),
       });
+    };
+
+    it('submit with no SLA policy still yields non-null deadlines', async () => {
+      primeCreate();
 
       const result = await service.create(
         {
@@ -533,14 +577,75 @@ describe('GrievancesService', () => {
           categoryId: 'cat-1',
           wardId: 'ward-1',
         },
-        'citizen-1',
+        { id: 'citizen-1', role: Role.CITIZEN },
       );
 
       expect(slaService.computeDeadlines).toHaveBeenCalled();
       expect(result.responseDueAt).not.toBeNull();
       expect(result.resolutionDueAt).not.toBeNull();
     });
+
+    it('a citizen cannot set priority, it is forced to MEDIUM', async () => {
+      primeCreate();
+
+      await service.create(
+        {
+          title: 'Test',
+          description: 'A long enough description',
+          categoryId: 'cat-1',
+          wardId: 'ward-1',
+          priority: Priority.URGENT,
+        },
+        { id: 'citizen-1', role: Role.CITIZEN },
+      );
+
+      expect(grievanceRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ priority: Priority.MEDIUM }),
+      );
+    });
+
+    it('an admin may set priority', async () => {
+      primeCreate();
+
+      await service.create(
+        {
+          title: 'Test',
+          description: 'A long enough description',
+          categoryId: 'cat-1',
+          wardId: 'ward-1',
+          priority: Priority.URGENT,
+        },
+        { id: 'admin-1', role: Role.ADMIN },
+      );
+
+      expect(grievanceRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({ priority: Priority.URGENT }),
+      );
+    });
+
+    it('an inactive category is rejected', async () => {
+      (service as any).categoryRepo = {
+        findOne: jest.fn().mockResolvedValue({
+          id: 'cat-1',
+          name: 'Retired',
+          isActive: false,
+        }),
+      };
+
+      await expect(
+        service.create(
+          {
+            title: 'Test',
+            description: 'A long enough description',
+            categoryId: 'cat-1',
+            wardId: 'ward-1',
+          },
+          { id: 'citizen-1', role: Role.CITIZEN },
+        ),
+      ).rejects.toThrow(BadRequestException);
+    });
   });
+
   describe('getHistory', () => {
     it('citizen gets 403 on /history', async () => {
       await expect(

@@ -4,6 +4,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { Message } from './entities/message.entity';
 import { GrievancesService } from 'src/grievances/grievances.service';
+import { UsersService } from 'src/users/users.service';
 import { Role, GrievanceStatus } from 'src/common/enums';
 import { NotificationsService } from 'src/notifications/notifications.service';
 
@@ -45,6 +46,16 @@ describe('MessagesService', () => {
         { provide: getRepositoryToken(Message), useValue: messageRepo },
         { provide: GrievancesService, useValue: grievancesService },
         { provide: NotificationsService, useValue: { notify: jest.fn() } },
+        {
+          provide: UsersService,
+          useValue: {
+            findOne: jest.fn().mockResolvedValue({
+              id: 'citizen-1',
+              email: 'citizen@example.com',
+              fullName: 'Test Citizen',
+            }),
+          },
+        },
       ],
     }).compile();
 
