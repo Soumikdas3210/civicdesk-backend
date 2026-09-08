@@ -174,4 +174,12 @@ export class GrievancesController {
       role: req.user.role,
     });
   }
+
+  @Roles(Role.ADMIN)
+  @Get(':id/eligible-officers')
+  eligibleOfficers(@Param('id', ParseUUIDPipe) id: string) {
+    return this.grievancesService
+      .eligibleOfficers(id)
+      .then((officers) => officers.map(toUserResponse));
+  }
 }
