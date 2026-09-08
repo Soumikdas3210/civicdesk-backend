@@ -28,10 +28,14 @@ import {
   Role,
   ActorKind,
   GrievanceStatus,
+  GrievanceAction,
 } from 'src/common/enums';
 import type { AiService } from 'src/ai/ai.interface';
 import { ChangeStatusDto } from './dto/change-status.dto';
-import { resolveTransition } from 'src/common/state-machine/transition-map';
+import {
+  resolveTransition,
+  tryTransition,
+} from 'src/common/state-machine/transition-map';
 import { User } from 'src/users/entities/user.entity';
 import { AssignGrievanceDto } from './dto/assign-grievance.dto';
 import { QueryGrievancesDto } from './dto/query-grievance.dto';
@@ -215,6 +219,38 @@ export class GrievancesService {
     });
   }
 
+  availableActions(
+    grievance: Grievance,
+    actor: { id: string; role: Role },
+  ): GrievanceAction[] {
+    if (actor.role === Role.CITIZEN && grievance.citizenId !== actor.id) {
+      return [];
+    }
+    if (
+      actor.role === Role.OFFICER &&
+      grievance.assignedOfficerId !== actor.id
+    ) {
+      return [];
+    }
+
+    const actorKind = actor.role as unknown as ActorKind;
+
+    return Object.values(GrievanceAction).filter((action) =>
+      Boolean(tryTransition(grievance.status, actorKind, action)),
+    );
+  }
+
+  async findOneWithActions(
+    grievanceId: string,
+    actor: { id: string; role: Role },
+  ) {
+    const grievance = await this.findOneScoped(grievanceId, actor);
+    return {
+      ...grievance,
+      availableActions: this.availableActions(grievance, actor),
+    };
+  }
+
   private async retractRating(
     grievance: Grievance,
     actorId: string,
@@ -245,6 +281,27 @@ export class GrievancesService {
         'Officer is not eligible to act on this grievance',
       );
     }
+  }
+
+  async eligibleOfficers(grievanceId: string): Promise<User[]> {
+    const grievance = await this.grievanceRepo.findOne({
+      where: { id: grievanceId },
+      relations: { category: true },
+    });
+    if (!grievance) {
+      throw new NotFoundException(`Grievance ${grievanceId} not found`);
+    }
+
+    const officers = await this.userRepo.find({
+      where: {
+        role: Role.OFFICER,
+        isActive: true,
+        departmentId: grievance.category.departmentId,
+      },
+      relations: { wards: true },
+    });
+
+    return officers.filter((officer) => this.isEligible(grievance, officer));
   }
 
   async retag(
@@ -298,8 +355,7 @@ export class GrievancesService {
       throw new NotFoundException(`Grievance ${grievanceId} not found`);
     }
 
-    const targetOfficerId =
-      actor.role === Role.ADMIN ? dto.officerId : actor.id;
+    const targetOfficerId = actor.role === Role.ADMIN ? dto.officerId : actor.id;
     if (!targetOfficerId) {
       throw new BadRequestException(
         'OfficerId is required when an admin assigns a grievance',
@@ -772,7 +828,7 @@ export class GrievancesService {
 
     const messages = await this.dataSource.getRepository(Message).find({
       where: { grievanceId },
-      relations: { author: true }, // adjust relation name if different
+      relations: { author: true },
       order: { createdAt: 'ASC' },
     });
 
@@ -804,26 +860,5 @@ export class GrievancesService {
 
     const result = await this.aiService.suggestReply(context);
     return { result };
-  }
-
-    async eligibleOfficers(grievanceId: string): Promise<User[]> {
-    const grievance = await this.grievanceRepo.findOne({
-      where: { id: grievanceId },
-      relations: { category: true },
-    });
-    if (!grievance) {
-      throw new NotFoundException(`Grievance ${grievanceId} not found`);
-    }
-
-    const officers = await this.userRepo.find({
-      where: {
-        role: Role.OFFICER,
-        isActive: true,
-        departmentId: grievance.category.departmentId,
-      },
-      relations: { wards: true },
-    });
-
-    return officers.filter((officer) => this.isEligible(grievance, officer));
   }
 }
