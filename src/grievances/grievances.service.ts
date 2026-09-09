@@ -372,6 +372,13 @@ export class GrievancesService {
 
     this.assertEligibility(grievance, officer);
 
+    if (grievance.assignedOfficerId === officer.id) {
+      return this.grievanceRepo.findOneOrFail({
+        where: { id: grievance.id },
+        relations: { category: { department: true }, ward: true },
+      });
+    }
+
     grievance.assignedOfficerId = officer.id;
     await this.grievanceRepo.save(grievance);
 
@@ -703,6 +710,7 @@ export class GrievancesService {
     const fromDepartmentId = grievance.category.departmentId;
 
     grievance.categoryId = newCategory.id;
+    grievance.category = newCategory;
 
     const { responseDueAt, resolutionDueAt } =
       await this.slaService.computeDeadlines(
