@@ -83,4 +83,13 @@ export class UsersController {
   deactivate(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.deactivate(id);
   }
+
+  
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
+  @Patch(':id/activate')
+  activate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.usersService.activate(id);
+  }
 }

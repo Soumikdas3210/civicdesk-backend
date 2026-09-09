@@ -195,4 +195,20 @@ export class UsersService {
       }
     }
   }
+
+    async activate(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException(`User ${userId} not found`);
+    }
+    if (user.isActive) {
+      return toUserResponse(user);
+    }
+
+    // No reconcile on the way back. Deactivating cleared their complaints and
+    // another officer may hold them now. Reassigning is an admin decision.
+    user.isActive = true;
+    await this.userRepo.save(user);
+    return toUserResponse(user);
+  }
 }

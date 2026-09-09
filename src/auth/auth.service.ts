@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { Role } from 'src/common/enums';
@@ -29,14 +33,22 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const user = await this.usersService.findByEmail(dto.email);
-    if (!user || !user.isActive) {
+
+    // The password is checked before isActive so that someone guessing email
+    // addresses cannot learn which ones belong to deactivated staff. Only a
+    // caller who already knows the password is told the account is disabled.
+    const isMatch =
+      user && (await bcrypt.compare(dto.password, user.passwordHash));
+    if (!user || !isMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
-    if (!isMatch) {
-      throw new UnauthorizedException('Invalid credentials');
+    if (!user.isActive) {
+      throw new ForbiddenException(
+        'This account has been deactivated. Please contact an administrator.',
+      );
     }
+
     return this.buildAuthResponse(user);
   }
 
