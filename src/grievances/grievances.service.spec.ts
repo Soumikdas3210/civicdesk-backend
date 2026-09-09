@@ -342,6 +342,8 @@ describe('GrievancesService', () => {
         getRepository: () => ({
           findOne: jest.fn().mockResolvedValue(officer),
         }),
+
+        
       };
 
       await service.assign(
@@ -351,6 +353,38 @@ describe('GrievancesService', () => {
       );
 
       expect(g.status).toBe(GrievanceStatus.OPEN);
+    });
+
+        it('assigning the same officer twice records nothing the second time', async () => {
+      const g = makeGrievance({
+        categoryId: 'cat-1',
+        wardId: 'ward-1',
+        assignedOfficerId: 'officer-1',
+      });
+      g.category = { departmentId: 'dept-A' } as any;
+      grievanceRepo.findOne.mockResolvedValue(g);
+      grievanceRepo.findOneOrFail.mockResolvedValue(g);
+
+      (service as any).dataSource = {
+        getRepository: () => ({
+          findOne: jest.fn().mockResolvedValue({
+            id: 'officer-1',
+            role: Role.OFFICER,
+            isActive: true,
+            departmentId: 'dept-A',
+            wards: [{ id: 'ward-1' }],
+          }),
+        }),
+      };
+
+      await service.assign(
+        'g-1',
+        { officerId: 'officer-1' },
+        { id: 'admin-1', role: Role.ADMIN },
+      );
+
+      expect(auditService.record).not.toHaveBeenCalled();
+      expect(notificationsService.notify).not.toHaveBeenCalled();
     });
   });
 
@@ -651,6 +685,33 @@ describe('GrievancesService', () => {
       await expect(
         service.getHistory('g-1', { id: 'citizen-1', role: Role.CITIZEN }),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('recategorize', () => {
+    it('sets both the foreign key and the relation object', async () => {
+      const g = makeGrievance({ categoryId: 'cat-old' });
+      g.category = { id: 'cat-old', departmentId: 'dept-A' } as any;
+      grievanceRepo.findOne.mockResolvedValue(g);
+      grievanceRepo.findOneOrFail.mockResolvedValue(g);
+      grievanceRepo.find.mockResolvedValue([]);
+
+      (service as any).categoryRepo = {
+        findOne: jest.fn().mockResolvedValue({
+          id: 'cat-new',
+          isActive: true,
+          departmentId: 'dept-B',
+        }),
+      };
+
+      await service.recategorize(
+        'g-1',
+        { categoryId: 'cat-new' },
+        { id: 'admin-1', role: Role.ADMIN },
+      );
+
+      expect(g.categoryId).toBe('cat-new');
+      expect(g.category.id).toBe('cat-new');
     });
   });
 });
