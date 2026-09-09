@@ -523,9 +523,10 @@ export class GrievancesService {
       );
     }
     if (dto.search) {
-      qb.andWhere('(g.title ILIKE :search OR g.description ILIKE :search)', {
-        search: `%${dto.search}%`,
-      });
+      qb.andWhere(
+        '(g.title ILIKE :search OR g.description ILIKE :search OR g."trackingCode" ILIKE :search)',
+        { search: `%${dto.search}%` },
+      );
     }
 
     qb.orderBy('g.createdAt', 'DESC')
