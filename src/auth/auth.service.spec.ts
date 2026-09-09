@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UsersService } from 'src/users/users.service';
 import { JwtService } from '@nestjs/jwt';
@@ -84,13 +84,30 @@ describe('AuthService', () => {
     ).rejects.toThrow(UnauthorizedException);
   });
 
-  it('rejects login for a deactivated user', async () => {
+  it('rejects login for an unknown email', async () => {
+    usersService.findByEmail.mockResolvedValue(null);
+    await expect(
+      authService.login({ email: 'nobody@example.com', password: 'Passw0rd!' }),
+    ).rejects.toThrow(UnauthorizedException);
+  });
+
+  it('rejects a deactivated account with 403, so the reason can be shown', async () => {
     usersService.findByEmail.mockResolvedValue({
       ...mockUser,
       isActive: false,
     });
     await expect(
       authService.login({ email: mockUser.email, password: 'Passw0rd!' }),
+    ).rejects.toThrow(ForbiddenException);
+  });
+
+  it('a wrong password on a deactivated account is still 401', async () => {
+    usersService.findByEmail.mockResolvedValue({
+      ...mockUser,
+      isActive: false,
+    });
+    await expect(
+      authService.login({ email: mockUser.email, password: 'WrongPassword' }),
     ).rejects.toThrow(UnauthorizedException);
   });
 });
