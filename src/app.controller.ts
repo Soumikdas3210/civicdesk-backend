@@ -11,4 +11,10 @@ export class AppController {
   health() {
     return { status: 'ok', name: 'CivicDesk API' };
   }
+
+  @ApiOperation({ summary: 'The same status, on a path the frontend can proxy.' })
+  @Get('health')
+  healthNamed() {
+    return this.health();
+  }
 }
